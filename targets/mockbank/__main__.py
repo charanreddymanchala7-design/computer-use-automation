@@ -18,6 +18,7 @@ def main() -> None:
         args.port,
         user=os.environ.get("MOCK_USER", "teller01"),
         password=os.environ.get("MOCK_PASS", "demo-only"),
+        faults=os.environ.get("MOCK_FAULTS", ""),
     )
     print(f"MemberServ 3.1 (SYNTHETIC) at http://{args.host}:{args.port}/msv/login.cgi")
     try:

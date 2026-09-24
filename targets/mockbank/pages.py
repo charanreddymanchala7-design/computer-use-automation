@@ -276,3 +276,21 @@ def done_page(ref: str, account_id: str, deposit_cents: int) -> str:
 
 def message_page(text: str) -> str:
     return page("Notice", banner(text))
+
+
+def notice_page(target: str) -> str:
+    """A full-page notice that replaces the requested page until it is acknowledged."""
+    back = escape(target, quote=True).replace("'", "%27")
+    body = (
+        "<P><FONT SIZE=3>SYSTEM NOTICE: END-OF-DAY BATCH AT 17:00</FONT></P>"
+        "<P>ALL OPEN SESSIONS WILL BE SUSPENDED DURING THE BATCH WINDOW.</P>"
+        f"<TABLE><TR><TD CLASS=btn ONCLICK=\"location='{back}'\">Acknowledge</TD></TR></TABLE>"
+    )
+    return page("System notice", body)
+
+
+def error_page() -> str:
+    return page(
+        "Error",
+        banner("APPLICATION ERROR 0x8004 - CONTACT YOUR SYSTEM ADMINISTRATOR"),
+    )
