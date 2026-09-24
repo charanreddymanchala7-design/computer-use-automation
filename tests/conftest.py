@@ -3,9 +3,28 @@
 from __future__ import annotations
 
 import copy
-from typing import Any
+import threading
+from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
+from targets.mockbank.server import make_server
+from tests.mockbank_support import FakeClock, MockHandle
+
+
+@pytest.fixture
+def mock() -> Iterator[MockHandle]:
+    clock = FakeClock()
+    server = make_server(port=0, clock=clock)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True
+    )
+    thread.start()
+    host, port = cast(tuple[str, int], server.server_address[:2])
+    yield MockHandle(f"http://{host}:{port}", host, port, server, clock)
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=5)
 
 
 def _bundle(*strategies: dict[str, Any], frame: str | None = "main") -> dict[str, Any]:

@@ -13,7 +13,7 @@ format-check:
 	uv run ruff format --check .
 
 typecheck:
-	uv run mypy --strict src tests
+	uv run mypy --strict src tests targets
 
 test:
 	uv run pytest -q
