@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import http.client
+import json
 import re
 from dataclasses import dataclass, field
 from http.cookies import SimpleCookie
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from urllib.parse import urlencode
 
 from targets.mockbank.server import MockBankServer
@@ -47,7 +48,13 @@ class MockClient:
     port: int
     cookies: dict[str, str] = field(default_factory=dict)
 
-    def request(self, method: str, path: str, data: dict[str, str] | None = None) -> Resp:
+    def request(
+        self,
+        method: str,
+        path: str,
+        data: dict[str, str] | None = None,
+        json_body: Any = None,
+    ) -> Resp:
         conn = http.client.HTTPConnection(self.host, self.port, timeout=10)
         headers = {}
         if self.cookies:
@@ -56,6 +63,9 @@ class MockClient:
         if data is not None:
             body = urlencode(data)
             headers["Content-Type"] = "application/x-www-form-urlencoded"
+        if json_body is not None:
+            body = json.dumps(json_body)
+            headers["Content-Type"] = "application/json"
         conn.request(method, path, body=body, headers=headers)
         raw = conn.getresponse()
         payload = raw.read()

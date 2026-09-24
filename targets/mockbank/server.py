@@ -30,6 +30,7 @@ from targets.mockbank.data import (
     Member,
     seed_members,
 )
+from targets.mockbank.faults import ArmedFault, FaultEngine, FaultError
 
 SESSION_COOKIE = "MSVSESS"
 FORM_EXPIRED = "FORM EXPIRED - RETURN TO THE MENU AND START AGAIN"
@@ -63,6 +64,9 @@ class MockState:
     pending: dict[str, Confirmation]
     closed_accounts: set[str]
     requests: list[dict[str, Any]]
+    effects: list[dict[str, Any]]
+    faults: FaultEngine
+    sleep: Callable[[float], None]
 
     def __init__(
         self,
@@ -77,6 +81,8 @@ class MockState:
         self.user = user
         self._password = password
         self.lock = threading.RLock()
+        self.sleep = time.sleep
+        self.faults = FaultEngine()
         self.reset()
 
     def reset(self) -> None:
@@ -88,6 +94,8 @@ class MockState:
             self.pending = {}
             self.closed_accounts = set()
             self.requests = []
+            self.effects = []
+            self.faults.disarm()
 
     # one-time form tokens: a form can be submitted once, so replay cannot shortcut with a POST
     def new_token(self) -> str:
@@ -158,14 +166,22 @@ class MockState:
                 f"CNF-{self.confirmations:06d}", member.number, account.id, deposit_cents
             )
             self.pending[confirmation.ref] = confirmation
+            self.effect(
+                "subaccount_created", ref=confirmation.ref, account=account.id, member=member.number
+            )
             return confirmation
 
-    def log(self, method: str, path: str, status: int, step: str) -> None:
+    def log(self, method: str, path: str, status: int, step: str, fault: str | None = None) -> None:
         """Server-side ground truth. Paths only: never bodies, cookies or credentials."""
         with self.lock:
             entry = {"seq": len(self.requests) + 1, "method": method, "path": path}
-            entry.update({"status": status, "step": step})
+            entry.update({"status": status, "step": step, "fault_applied": fault})
             self.requests.append(entry)
+
+    def effect(self, kind: str, **detail: str) -> None:
+        """A change of state (not just a request), so tests can prove what did or did not happen."""
+        with self.lock:
+            self.effects.append({"kind": kind, "request_seq": len(self.requests) + 1, **detail})
 
 
 def _digits(text: str) -> str:
@@ -183,6 +199,7 @@ class Request:
     query: dict[str, str]
     form: dict[str, str]
     session: str | None
+    target: str  # the path and query as requested, for pages that send you back
 
 
 @dataclass
@@ -321,7 +338,36 @@ def close_get(req: Request) -> Response:
     account = req.query.get("acct", "")
     with req.state.lock:
         req.state.closed_accounts.add(account)
+        req.state.effect("account_closed", account=account)
     return html(pages.closed_page(account))
+
+
+def apply_fault(fault: ArmedFault, req: Request, step: str) -> Response | None:
+    """What an armed fault does to this request. None means: carry on as normal (just late)."""
+    state = req.state
+    params = fault.params
+    if fault.mode == "slow_load":
+        state.sleep(float(params.get("delay_ms", 3000)) / 1000)
+        return None
+    if fault.mode == "session_timeout":
+        state.end_session(req.session)
+        return html(pages.login_page(state.new_token()))
+    if fault.mode == "member_not_found":
+        return html(pages.results_page([]))
+    if fault.mode == "interstitial_known":
+        return html(pages.notice_page(req.target))
+    if fault.mode == "validation_error":
+        member = _member(req)
+        state.consume_token(req.form.get("tok"))
+        if member is None:
+            return html(pages.results_page([]))
+        error = "ERR 1042: OPENING DEPOSIT BELOW MINIMUM ($5.00)"
+        return html(pages.newsub_page(member, state.new_token(), error))
+    if fault.mode == "app_error":
+        if params.get("commit") and step == "newsub_submit":
+            newsub_post(req)  # the account really is created; only the answer is an error
+        return Response(int(params.get("status", 200)), pages.error_page())
+    return None
 
 
 def _static(html_text: Callable[[], str]) -> Handler:
@@ -369,6 +415,10 @@ def _json(data: Any) -> Response:
     return Response(200, json.dumps(data, indent=2), content_type="application/json")
 
 
+def _json_error(message: str) -> Response:
+    return Response(400, json.dumps({"error": message}), content_type="application/json")
+
+
 class _Handler(BaseHTTPRequestHandler):
     server: MockBankServer
     protocol_version = "HTTP/1.0"
@@ -386,32 +436,36 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         self._serve("POST")
 
+    def do_DELETE(self) -> None:
+        self._serve("DELETE")
+
     def _serve(self, method: str) -> None:
         parts = urlsplit(self.path)
         query = {k: v[0] for k, v in parse_qs(parts.query, keep_blank_values=True).items()}
-        form: dict[str, str] = {}
-        if method == "POST":
+        raw = ""
+        if method in ("POST", "DELETE"):
             try:
                 length = int(self.headers.get("Content-Length") or 0)
             except ValueError:
                 length = 0
             raw = self.rfile.read(length).decode("iso-8859-1")
+        if parts.path.startswith("/_admin"):
+            response = self._admin(method, parts.path, raw)
+        else:
             parsed = parse_qs(raw, keep_blank_values=True, encoding="iso-8859-1")
             form = {k: v[0] for k, v in parsed.items()}
-        if parts.path.startswith("/_admin"):
-            response = self._admin(method, parts.path)
-        else:
-            response = self._app(method, parts.path, query, form)
+            response = self._app(method, parts.path, self.path, query, form)
         self._send(response)
 
-    def _admin(self, method: str, path: str) -> Response:
+    def _admin(self, method: str, path: str, raw: str) -> Response:
         if not is_loopback(self.client_address[0]):
             return Response(403, "FORBIDDEN", content_type="text/plain")
         state = self.server.state
-        if (method, path) == ("GET", "/_admin/log"):
+        endpoint = (method, path)
+        if endpoint == ("GET", "/_admin/log"):
             with state.lock:
-                return _json({"requests": list(state.requests)})
-        if (method, path) == ("GET", "/_admin/state"):
+                return _json({"requests": list(state.requests), "effects": list(state.effects)})
+        if endpoint == ("GET", "/_admin/state"):
             with state.lock:
                 members = {n: [a.id for a in m.accounts] for n, m in state.members.items()}
                 return _json(
@@ -421,12 +475,40 @@ class _Handler(BaseHTTPRequestHandler):
                         "accounts": members,
                     }
                 )
-        if (method, path) == ("POST", "/_admin/reset"):
+        if endpoint == ("POST", "/_admin/reset"):
             state.reset()
             return _json({"ok": True})
+        if endpoint == ("GET", "/_admin/faults"):
+            return _json({"armed": state.faults.armed()})
+        if endpoint == ("DELETE", "/_admin/faults"):
+            state.faults.disarm()
+            return _json({"armed": []})
+        if endpoint == ("POST", "/_admin/faults"):
+            return self._arm(raw)
         return Response(404, "NOT FOUND", content_type="text/plain")
 
-    def _app(self, method: str, path: str, query: dict[str, str], form: dict[str, str]) -> Response:
+    def _arm(self, raw: str) -> Response:
+        faults = self.server.state.faults
+        try:
+            body = json.loads(raw)
+        except json.JSONDecodeError:
+            return _json_error("body must be a JSON object")
+        if not isinstance(body, dict):
+            return _json_error("body must be a JSON object")
+        mode = body.get("mode")
+        if not isinstance(mode, str):
+            return _json_error("mode is required")
+        try:
+            faults.arm(
+                mode, step=body.get("step"), times=body.get("times", 1), params=body.get("params")
+            )
+        except FaultError as exc:
+            return _json_error(str(exc))
+        return _json({"armed": faults.armed()})
+
+    def _app(
+        self, method: str, path: str, target: str, query: dict[str, str], form: dict[str, str]
+    ) -> Response:
         state = self.server.state
         route = ROUTES.get((method, path))
         if route is None:
@@ -436,6 +518,8 @@ class _Handler(BaseHTTPRequestHandler):
         morsel = cookies.get(SESSION_COOKIE)
         token = morsel.value if morsel else None
         live = state.touch_session(token)
+        applied: str | None = None
+        response: Response | None
         if not route.public and not live:
             # Legacy behaviour: an expired session is a normal 200 page (the login form)
             # rendered inside whichever frame asked; only the frameset itself redirects.
@@ -444,10 +528,15 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 response = html(pages.login_page(state.new_token()))
         else:
-            response = route.handler(
-                Request(state, method, path, query, form, token if live else None)
-            )
-        state.log(method, path, response.status, route.step)
+            request = Request(state, method, path, query, form, token if live else None, target)
+            response = None
+            fault = None if route.public else state.faults.take(route.step, method)
+            if fault is not None:
+                applied = fault.mode
+                response = apply_fault(fault, request, route.step)
+            if response is None:
+                response = route.handler(request)
+        state.log(method, path, response.status, route.step, fault=applied)
         return response
 
     def _send(self, response: Response) -> None:
@@ -483,10 +572,12 @@ def make_server(
     session_timeout_s: float = 300.0,
     user: str = "teller01",
     password: str = "demo-only",
+    faults: str = "",
 ) -> MockBankServer:
     if not is_loopback(host):
         raise ValueError("MemberServ is a synthetic demo and only binds loopback addresses")
     state = MockState(
         clock=clock, session_timeout_s=session_timeout_s, user=user, password=password
     )
+    state.faults.arm_from_spec(faults)
     return MockBankServer((host, port), state)
