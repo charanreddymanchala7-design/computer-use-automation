@@ -1,0 +1,150 @@
+"""Shared fixtures. `capability_dict` is a realistic, valid member-lookup capability."""
+
+from __future__ import annotations
+
+import copy
+from typing import Any
+
+import pytest
+
+
+def _bundle(*strategies: dict[str, Any], frame: str | None = "main") -> dict[str, Any]:
+    return {
+        "description": "element",
+        "frame_path": [{"name": frame}] if frame else [],
+        "strategies": list(strategies),
+    }
+
+
+@pytest.fixture
+def capability_dict() -> dict[str, Any]:
+    """A fresh deep copy per test, so tests can mutate it freely."""
+    data: dict[str, Any] = {
+        "schema_version": "1",
+        "id": "member_lookup",
+        "capability_version": "1.0.0",
+        "title": "Look up a member and read their savings balance",
+        "description": "Search for a member by number and read the current savings balance.",
+        "status": "draft",
+        "target": {
+            "vendor": "MemberServ",
+            "product": "MemberServ",
+            "version_range": ">=3.1,<4",
+            "tenant_profile": "default",
+            "surface": "web",
+        },
+        "inputs": {
+            "type": "object",
+            "properties": {
+                "member_id": {"type": "string", "pattern": "^[0-9]{5}$"},
+            },
+            "required": ["member_id"],
+            "additionalProperties": False,
+        },
+        "outputs": {
+            "type": "object",
+            "properties": {"savings_balance": {"type": "string"}},
+            "required": ["savings_balance"],
+            "additionalProperties": False,
+        },
+        "steps": [
+            {
+                "id": "s1",
+                "action": "navigate",
+                "description": "Open the member search page",
+                "url_template": "http://127.0.0.1:4310/members/search",
+                "risk_class": "read",
+            },
+            {
+                "id": "s2",
+                "action": "fill",
+                "description": "Type the member number",
+                "locator": _bundle(
+                    {
+                        "kind": "label",
+                        "text": "Member #",
+                        "rationale": "Visible label survives markup changes",
+                    },
+                    {
+                        "kind": "attribute_fingerprint",
+                        "tag": "input",
+                        "attributes": {"name": "mno"},
+                        "rationale": "name attribute is stable even without a label",
+                    },
+                ),
+                "value": {"source": "param", "name": "member_id"},
+                "risk_class": "read",
+            },
+            {
+                "id": "s3",
+                "action": "click",
+                "description": "Press Search",
+                "locator": _bundle(
+                    {
+                        "kind": "role_name",
+                        "role": "button",
+                        "name": "Search",
+                        "rationale": "Accessible name of the button",
+                    },
+                    {
+                        "kind": "text",
+                        "text": "Search",
+                        "rationale": "Fallback on visible text",
+                    },
+                ),
+                "risk_class": "read",
+                "expect": {"text_present": ["Search results"]},
+            },
+            {
+                "id": "s4",
+                "action": "extract",
+                "description": "Read the savings balance",
+                "locator": _bundle(
+                    {
+                        "kind": "ancestor_anchor",
+                        "anchor_text": "Savings",
+                        "container": "row",
+                        "target_role": "cell",
+                        "rationale": "Row labelled Savings holds the balance",
+                    },
+                    frame="accounts",
+                ),
+                "output": "savings_balance",
+                "risk_class": "read",
+            },
+        ],
+        "checkpoint": {"url_pattern": "/members/:id", "text_present": ["Savings"]},
+        "error_map": [
+            {
+                "id": "no_such_member",
+                "detect": {"text_present": ["No member found"]},
+                "classification": "business_outcome",
+                "outcome_code": "member_not_found",
+                "message": "No member matches the supplied number",
+            },
+            {
+                "id": "welcome_interstitial",
+                "detect": {"text_present": ["Notice to all staff"]},
+                "classification": "recoverable",
+                "recovery": {
+                    "kind": "dismiss",
+                    "locator": _bundle(
+                        {
+                            "kind": "role_name",
+                            "role": "button",
+                            "name": "Continue",
+                            "rationale": "Known interstitial has a Continue button",
+                        }
+                    ),
+                    "max_attempts": 2,
+                },
+            },
+            {
+                "id": "app_crashed",
+                "detect": {"text_present": ["Internal Server Error"]},
+                "classification": "hard_failure",
+                "code": "app_error",
+            },
+        ],
+    }
+    return copy.deepcopy(data)

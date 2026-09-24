@@ -1,0 +1,1102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ActionKind": {
+      "enum": [
+        "navigate",
+        "click",
+        "fill",
+        "select",
+        "press",
+        "wait_for",
+        "extract"
+      ],
+      "title": "ActionKind",
+      "type": "string"
+    },
+    "AncestorAnchorLocator": {
+      "additionalProperties": false,
+      "description": "Find the element by a nearby stable landmark, e.g. the row that says 'Savings'.",
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "ancestor_anchor",
+          "default": "ancestor_anchor",
+          "title": "Kind",
+          "type": "string"
+        },
+        "anchor_text": {
+          "title": "Anchor Text",
+          "type": "string"
+        },
+        "container": {
+          "default": "any",
+          "enum": [
+            "row",
+            "cell",
+            "form",
+            "fieldset",
+            "frame_body",
+            "any"
+          ],
+          "title": "Container",
+          "type": "string"
+        },
+        "target_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Role"
+        },
+        "target_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Tag"
+        },
+        "nth": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Nth",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rationale",
+        "anchor_text"
+      ],
+      "title": "AncestorAnchorLocator",
+      "type": "object"
+    },
+    "AttributeFingerprintLocator": {
+      "additionalProperties": false,
+      "description": "Tag plus stable attributes (name, type, alt, title). Never dynamic ids.",
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "attribute_fingerprint",
+          "default": "attribute_fingerprint",
+          "title": "Kind",
+          "type": "string"
+        },
+        "tag": {
+          "title": "Tag",
+          "type": "string"
+        },
+        "attributes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1,
+          "title": "Attributes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "rationale",
+        "tag",
+        "attributes"
+      ],
+      "title": "AttributeFingerprintLocator",
+      "type": "object"
+    },
+    "Checkpoint": {
+      "additionalProperties": false,
+      "description": "The success condition of the whole capability.",
+      "properties": {
+        "url_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url Pattern"
+        },
+        "text_present": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Text Present",
+          "type": "array"
+        },
+        "aria_contains": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aria Contains",
+          "type": "array"
+        },
+        "timeout_ms": {
+          "default": 10000,
+          "maximum": 120000,
+          "minimum": 100,
+          "title": "Timeout Ms",
+          "type": "integer"
+        }
+      },
+      "title": "Checkpoint",
+      "type": "object"
+    },
+    "CoordinatesLocator": {
+      "additionalProperties": false,
+      "description": "Last resort for surfaces with no DOM or accessibility tree.",
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "coordinates",
+          "default": "coordinates",
+          "title": "Kind",
+          "type": "string"
+        },
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        },
+        "viewport_width": {
+          "exclusiveMinimum": 0,
+          "title": "Viewport Width",
+          "type": "integer"
+        },
+        "viewport_height": {
+          "exclusiveMinimum": 0,
+          "title": "Viewport Height",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rationale",
+        "x",
+        "y",
+        "viewport_width",
+        "viewport_height"
+      ],
+      "title": "CoordinatesLocator",
+      "type": "object"
+    },
+    "CssLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "css",
+          "default": "css",
+          "title": "Kind",
+          "type": "string"
+        },
+        "selector": {
+          "title": "Selector",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rationale",
+        "selector"
+      ],
+      "title": "CssLocator",
+      "type": "object"
+    },
+    "Detector": {
+      "additionalProperties": false,
+      "description": "How replay recognises a runtime condition. Any one signal is enough.",
+      "properties": {
+        "url_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url Pattern"
+        },
+        "text_present": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Text Present",
+          "type": "array"
+        },
+        "dialog_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dialog Message"
+        },
+        "element": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocatorBundle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "Detector",
+      "type": "object"
+    },
+    "ErrorClass": {
+      "enum": [
+        "business_outcome",
+        "recoverable",
+        "hard_failure"
+      ],
+      "title": "ErrorClass",
+      "type": "string"
+    },
+    "ErrorRule": {
+      "additionalProperties": false,
+      "description": "One declared runtime condition and how it is classified.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{1,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "detect": {
+          "$ref": "#/$defs/Detector"
+        },
+        "classification": {
+          "$ref": "#/$defs/ErrorClass"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "outcome_code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{1,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome Code"
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Recovery"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{1,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        }
+      },
+      "required": [
+        "id",
+        "detect",
+        "classification"
+      ],
+      "title": "ErrorRule",
+      "type": "object"
+    },
+    "Expectation": {
+      "additionalProperties": false,
+      "description": "What must be true after a step for it to count as done.",
+      "properties": {
+        "url_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url Pattern"
+        },
+        "text_present": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Text Present",
+          "type": "array"
+        },
+        "text_absent": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Text Absent",
+          "type": "array"
+        },
+        "element": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocatorBundle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timeout_ms": {
+          "default": 5000,
+          "maximum": 120000,
+          "minimum": 100,
+          "title": "Timeout Ms",
+          "type": "integer"
+        }
+      },
+      "title": "Expectation",
+      "type": "object"
+    },
+    "FrameSelector": {
+      "additionalProperties": false,
+      "description": "One hop into a frame. Legacy framesets often have no names, so index and URL work too.",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "url_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url Pattern"
+        },
+        "index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index"
+        }
+      },
+      "title": "FrameSelector",
+      "type": "object"
+    },
+    "LabelLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "label",
+          "default": "label",
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "title": "Exact",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rationale",
+        "text"
+      ],
+      "title": "LabelLocator",
+      "type": "object"
+    },
+    "LiteralValue": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "literal",
+          "default": "literal",
+          "title": "Source",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "LiteralValue",
+      "type": "object"
+    },
+    "LocatorBundle": {
+      "additionalProperties": false,
+      "description": "A ranked list of ways to find one element. Replay tries them in order.",
+      "properties": {
+        "description": {
+          "description": "Human name of the element",
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "frame_path": {
+          "items": {
+            "$ref": "#/$defs/FrameSelector"
+          },
+          "title": "Frame Path",
+          "type": "array"
+        },
+        "strategies": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "ancestor_anchor": "#/$defs/AncestorAnchorLocator",
+                "attribute_fingerprint": "#/$defs/AttributeFingerprintLocator",
+                "coordinates": "#/$defs/CoordinatesLocator",
+                "css": "#/$defs/CssLocator",
+                "label": "#/$defs/LabelLocator",
+                "role_name": "#/$defs/RoleNameLocator",
+                "text": "#/$defs/TextLocator",
+                "xpath": "#/$defs/XPathLocator"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RoleNameLocator"
+              },
+              {
+                "$ref": "#/$defs/LabelLocator"
+              },
+              {
+                "$ref": "#/$defs/TextLocator"
+              },
+              {
+                "$ref": "#/$defs/AncestorAnchorLocator"
+              },
+              {
+                "$ref": "#/$defs/AttributeFingerprintLocator"
+              },
+              {
+                "$ref": "#/$defs/CssLocator"
+              },
+              {
+                "$ref": "#/$defs/XPathLocator"
+              },
+              {
+                "$ref": "#/$defs/CoordinatesLocator"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Strategies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "strategies"
+      ],
+      "title": "LocatorBundle",
+      "type": "object"
+    },
+    "ParamRef": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "param",
+          "default": "param",
+          "title": "Source",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ParamRef",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "How it was discovered. Deliberately not the model transcript.",
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "discovered_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Discovered At"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "steps_observed": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Steps Observed"
+        }
+      },
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Recovery": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "dismiss",
+            "wait_retry"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocatorBundle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_attempts": {
+          "default": 3,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "backoff_ms": {
+          "default": 500,
+          "maximum": 10000,
+          "minimum": 0,
+          "title": "Backoff Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Recovery",
+      "type": "object"
+    },
+    "RiskClass": {
+      "enum": [
+        "read",
+        "reversible_write",
+        "irreversible_write"
+      ],
+      "title": "RiskClass",
+      "type": "string"
+    },
+    "RoleNameLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "role_name",
+          "default": "role_name",
+          "title": "Kind",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "title": "Exact",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rationale",
+        "role",
+        "name"
+      ],
+      "title": "RoleNameLocator",
+      "type": "object"
+    },
+    "SecretRef": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "secret",
+          "default": "secret",
+          "title": "Source",
+          "type": "string"
+        },
+        "name": {
+          "description": "Environment variable name",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SecretRef",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/ActionKind"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "url_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Absolute URL; {input_name} placeholders are substituted",
+          "title": "Url Template"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocatorBundle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "literal": "#/$defs/LiteralValue",
+                  "param": "#/$defs/ParamRef",
+                  "secret": "#/$defs/SecretRef"
+                },
+                "propertyName": "source"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/LiteralValue"
+                },
+                {
+                  "$ref": "#/$defs/ParamRef"
+                },
+                {
+                  "$ref": "#/$defs/SecretRef"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output property this step extracts",
+          "title": "Output"
+        },
+        "risk_class": {
+          "$ref": "#/$defs/RiskClass"
+        },
+        "sensitive": {
+          "default": false,
+          "title": "Sensitive",
+          "type": "boolean"
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expectation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "description",
+        "risk_class"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "description": "What software this capability was recorded against; the seam for multi-tenant reuse.",
+      "properties": {
+        "vendor": {
+          "title": "Vendor",
+          "type": "string"
+        },
+        "product": {
+          "title": "Product",
+          "type": "string"
+        },
+        "version_range": {
+          "title": "Version Range",
+          "type": "string"
+        },
+        "tenant_profile": {
+          "default": "default",
+          "title": "Tenant Profile",
+          "type": "string"
+        },
+        "surface": {
+          "default": "web",
+          "enum": [
+            "web",
+            "desktop"
+          ],
+          "title": "Surface",
+          "type": "string"
+        }
+      },
+      "required": [
+        "vendor",
+        "product",
+        "version_range"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "TextLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "text",
+          "default": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "title": "Exact",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rationale",
+        "text"
+      ],
+      "title": "TextLocator",
+      "type": "object"
+    },
+    "XPathLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "description": "Why this strategy should survive UI change",
+          "minLength": 3,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "kind": {
+          "const": "xpath",
+          "default": "xpath",
+          "title": "Kind",
+          "type": "string"
+        },
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rationale",
+        "expression"
+      ],
+      "title": "XPathLocator",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "description": "Tool-name style slug, stable across versions",
+      "pattern": "^[a-z][a-z0-9_]{2,63}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "capability_version": {
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$",
+      "title": "Capability Version",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "status": {
+      "default": "draft",
+      "enum": [
+        "draft",
+        "active",
+        "deprecated"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/Target"
+    },
+    "inputs": {
+      "additionalProperties": true,
+      "description": "JSON Schema (object) of the parameters callers supply",
+      "title": "Inputs",
+      "type": "object"
+    },
+    "outputs": {
+      "additionalProperties": true,
+      "description": "JSON Schema (object) of the data returned",
+      "title": "Outputs",
+      "type": "object"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    },
+    "checkpoint": {
+      "$ref": "#/$defs/Checkpoint"
+    },
+    "error_map": {
+      "items": {
+        "$ref": "#/$defs/ErrorRule"
+      },
+      "title": "Error Map",
+      "type": "array"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "capability_version",
+    "title",
+    "description",
+    "target",
+    "inputs",
+    "outputs",
+    "steps",
+    "checkpoint"
+  ],
+  "title": "Capability",
+  "type": "object"
+}
