@@ -25,7 +25,7 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy --strict src tests
+      - run: uv run mypy --strict src tests targets
 
   test:
     needs: quality
