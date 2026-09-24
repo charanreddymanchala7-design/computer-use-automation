@@ -1,0 +1,37 @@
+# secrets: real values live only in .env, never in the repo
+.env
+.env.*
+!.env.example
+
+# python / tooling
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.json
+htmlcov/
+dist/
+*.egg-info/
+.scratch/
+.DS_Store
+node_modules/
+
+# browser state that can hold cookies / tokens
+.browser-profile/
+.profiles/
+*.har
+trace.zip
+*.webm
+
+# raw, unredacted run artifacts; only redacted evidence is committed
+evidence/**/raw/
+runs/
+
+# working files of the build process, not part of the submission
+.claude-protocol/
+research/
+plan/

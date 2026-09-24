@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "computer-use-automation"
+version = "0.1.0"
+description = "LLM-discovered, deterministically replayed UI automation capabilities for legacy back-office apps."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  # Pinned exactly: 1.62.0 reuses the locally cached Chromium build (see docs/spikes.md once written).
+  "playwright==1.62.0",
+  "pydantic>=2.13,<3",
+  "anthropic>=1.8,<2",
+  "typer>=0.16,<1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=9,<10",
+  "pytest-asyncio>=1.0",
+  "pytest-cov>=6",
+  "ruff>=0.16.9,<0.17",
+  "mypy>=2.3,<3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cua"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "targets"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "C4", "PT", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "browser: needs a real Chromium (uv run playwright install chromium)",
+  "live: needs a real LLM API key; never run in CI",
+]
+
+[tool.coverage.run]
+source = ["src/cua"]
+branch = true
+
+[tool.coverage.report]
+# Overall floor (decision Q6). The stricter 90% gate on load-bearing modules lives in
+# scripts/check_coverage.py because coverage.py has no per-file threshold.
+fail_under = 70
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
