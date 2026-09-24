@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import socket
 import threading
 from collections.abc import Iterator
 from typing import Any, cast
@@ -10,6 +11,35 @@ from typing import Any, cast
 import pytest
 from targets.mockbank.server import make_server
 from tests.mockbank_support import FakeClock, MockHandle
+
+from cua.surface import PlaywrightSurface, SurfaceConfig, SurfaceUnavailable
+
+
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+@pytest.fixture(scope="module")
+def browser_surface() -> Iterator[PlaywrightSurface]:
+    """One real headless Chromium per test module; each test resets it (see `surface`)."""
+    surface = PlaywrightSurface(
+        SurfaceConfig(headless=True, debug_port=_free_port()),
+        secrets={"MOCK_USER": "teller01", "MOCK_PASS": "demo-only"},
+    )
+    try:
+        surface.open()
+    except SurfaceUnavailable as exc:
+        pytest.skip(str(exc))
+    yield surface
+    surface.close()
+
+
+@pytest.fixture
+def surface(browser_surface: PlaywrightSurface, mock: MockHandle) -> PlaywrightSurface:
+    browser_surface.reset()
+    return browser_surface
 
 
 @pytest.fixture
