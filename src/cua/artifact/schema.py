@@ -27,7 +27,9 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 
 import jsonschema
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+
+from cua.common import CODE_PATTERN, StrictModel
 
 SCHEMA_VERSION: Literal["1"] = "1"
 
@@ -38,10 +40,7 @@ _SENSITIVE_KEYWORD = "x-sensitive"
 _FORBIDDEN_ON_SENSITIVE = ("default", "examples", "enum", "const")
 
 
-class _Model(BaseModel):
-    """Strict base: unknown fields are errors, so a reviewer sees everything that is there."""
-
-    model_config = ConfigDict(extra="forbid")
+_Model = StrictModel
 
 
 class RiskClass(StrEnum):
@@ -263,7 +262,7 @@ class Recovery(_Model):
         return self
 
 
-_CODE = r"^[a-z][a-z0-9_]{1,63}$"
+_CODE = CODE_PATTERN
 
 # class -> (required field, fields that belong to other classes)
 _ERROR_FIELDS: dict[ErrorClass, tuple[str, tuple[str, ...]]] = {
