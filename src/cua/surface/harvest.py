@@ -35,10 +35,11 @@ from cua.artifact import (
     TextLocator,
     XPathLocator,
     fill_placeholders,
+    parameterize,
 )
 from cua.surface.base import ElementInfo, HarvestError
 
-_MIN_PARAM_LENGTH = 3  # a shorter value would rewrite half of any text it appears in
+_MIN_PARAM_LENGTH = 3  # see cua.artifact.parameterize
 _NAMED_ROLES = frozenset({"link", "button", "checkbox", "radio", "tab", "menuitem", "option"})
 _FIELD_TAGS = frozenset({"input", "select", "textarea"})
 _TEXT_TAGS = frozenset({"a", "td", "th", "tr", "button", "span", "font", "b", "p", "div", "li"})
@@ -206,14 +207,6 @@ def single_match(
 
 
 # --- harvesting -------------------------------------------------------------------------------
-
-
-def parameterize(text: str, params: Mapping[str, str]) -> str:
-    """Replace any caller-supplied value found in the text with its `{name}` placeholder."""
-    for name, value in sorted(params.items(), key=lambda kv: len(kv[1]), reverse=True):
-        if len(value) >= _MIN_PARAM_LENGTH:
-            text = text.replace(value, "{" + name + "}")
-    return text
 
 
 def _name_of(info: ElementInfo) -> str:

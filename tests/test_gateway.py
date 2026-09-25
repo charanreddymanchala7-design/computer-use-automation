@@ -506,6 +506,18 @@ def test_the_guard_allows_and_blocks_requests_and_logs_the_blocks(tmp_path: Path
     assert "/msv/admin.cgi" in event["url"]
 
 
+def test_blocked_navigations_are_counted_but_blocked_subresources_are_not(
+    tmp_path: Path,
+) -> None:
+    gateway, surface, _ = build(tmp_path)
+    assert surface.guard is not None
+    surface.guard(RequestInfo("http://evil.example/track.gif", "GET", "image", False))
+    assert gateway.blocked_navigations == []
+    surface.guard(RequestInfo(f"{BASE}/msv/admin.cgi", "GET", "document", True))
+    surface.guard(RequestInfo(f"{BASE}/msv/search.cgi", "GET", "document", True))  # allowed
+    assert gateway.blocked_navigations == [f"{BASE}/msv/admin.cgi"]
+
+
 def test_the_guard_can_be_left_off(tmp_path: Path) -> None:
     surface = FakeSurface()
     log = EventLog(tmp_path / "run.jsonl", run_id="r", redactor=Redactor())

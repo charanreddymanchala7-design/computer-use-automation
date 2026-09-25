@@ -397,6 +397,17 @@ def placeholders_in(text: str) -> list[str]:
     return _PLACEHOLDER.findall(text)
 
 
+_MIN_PARAM_LENGTH = 3  # a shorter value would rewrite half of any text it appears in
+
+
+def parameterize(text: str, params: Mapping[str, str]) -> str:
+    """Replace any caller-supplied value found in the text with its `{name}` placeholder."""
+    for name, value in sorted(params.items(), key=lambda kv: len(kv[1]), reverse=True):
+        if len(value) >= _MIN_PARAM_LENGTH:
+            text = text.replace(value, "{" + name + "}")
+    return text
+
+
 def fill_placeholders(text: str, values: Mapping[str, str]) -> str:
     """Substitute `{input}` placeholders; a missing value is a KeyError, never a silent blank."""
 
