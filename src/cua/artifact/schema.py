@@ -41,7 +41,8 @@ _SENSITIVE_KEYWORD = "x-sensitive"
 _FORBIDDEN_ON_SENSITIVE = ("default", "examples", "enum", "const")
 
 
-_Model = StrictModel
+class _Model(StrictModel):
+    """Strict base for every artifact model."""
 
 
 class RiskClass(StrEnum):

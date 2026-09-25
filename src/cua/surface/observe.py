@@ -31,6 +31,16 @@ TEXT_JS = r"""() => {
   return raw.replace(/[ \t\u00a0]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 }"""
 
+# The text of one element (the value, for a field), normalised like a frame's text. A password
+# field is never read.
+ELEMENT_TEXT_JS = r"""(el) => {
+  const type = (el.getAttribute('type') || '').toLowerCase();
+  if (el.tagName === 'INPUT' && type === 'password') return '<masked>';
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return el.value || '';
+  return (el.innerText || el.textContent || '')
+    .replace(/[ \t\u00a0]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+}"""
+
 # Visible interactive elements, in document order. A hidden decoy (display:none) is skipped
 # because it has no box, and hidden inputs carry tokens rather than anything a person can use.
 COLLECT_JS = r"""() => {
@@ -234,6 +244,24 @@ def _elements(frame: Frame, index: int, refs: RefTable) -> list[ElementInfo]:
     ]
 
 
+def describe_handle(handle: ElementHandle, refs: RefTable, secrets: Iterable[str]) -> ElementInfo:
+    """Give an element found some other way (a resolved locator) a ref and the same facts an
+    observed element has, so it can be acted on and risk-classified identically."""
+    frame = handle.owner_frame()
+    if frame is None:
+        raise PlaywrightError("the element is no longer attached to a frame")
+    facts: list[dict[str, Any]] = frame.evaluate(DESCRIBE_JS, [handle])
+    info = refs.issue(handle, -1, facts[0])  # -1: not part of any observation's frame list
+    hidden = [*secrets, *frame.evaluate(PASSWORD_VALUES_JS)]
+    info.text = _mask(info.text, hidden)
+    info.attrs = {k: _mask(v, hidden) for k, v in info.attrs.items()}
+    return info
+
+
+def mask_text(text: str, secrets: Iterable[str]) -> str:
+    return _mask(text, secrets)
+
+
 def _observe_frame(
     frame: Frame,
     index: int,
@@ -276,10 +304,10 @@ def observe_frames(
 
     def visit(frame: Frame, path: tuple[FrameHop, ...]) -> None:
         frames.append(_observe_frame(frame, len(frames), path, refs, hidden))
-        for position, child in enumerate(frame.child_frames):
-            if not child.is_detached():
-                hop = FrameHop(child.name or None, position, child.url)
-                visit(child, (*path, hop))
+        live = [child for child in frame.child_frames if not child.is_detached()]
+        for position, child in enumerate(live):
+            hop = FrameHop(child.name or None, position, child.url)
+            visit(child, (*path, hop))
 
     visit(page.main_frame, ())
     return frames

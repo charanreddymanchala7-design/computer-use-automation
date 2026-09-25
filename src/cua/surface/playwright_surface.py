@@ -28,22 +28,34 @@ from playwright.sync_api import (
 )
 from playwright.sync_api import Error as PlaywrightError
 
+from cua.artifact import CoordinatesLocator, LocatorBundle
+from cua.surface import harvest as locators
 from cua.surface.base import (
     MAX_WAIT_MS,
     Action,
     ActionResult,
     DialogEvent,
     ElementInfo,
+    LocatorAttempt,
+    LocatorNotFound,
     Observation,
     RequestGuard,
     RequestInfo,
+    Resolved,
     StaleRefError,
     SurfaceError,
     SurfaceUnavailable,
     UnknownRefError,
     UnknownSecretError,
 )
-from cua.surface.observe import TEXT_JS, RefTable, observe_frames
+from cua.surface.observe import (
+    ELEMENT_TEXT_JS,
+    TEXT_JS,
+    RefTable,
+    describe_handle,
+    mask_text,
+    observe_frames,
+)
 
 
 def _accept_all_but_prompts(kind: str, message: str) -> bool:
@@ -247,6 +259,58 @@ class PlaywrightSurface:
             screenshot=self.page.screenshot(type="png"),
             dialogs=dialogs,
         )
+
+    # --- locators -----------------------------------------------------------------------------
+
+    def harvest(
+        self, ref: str, *, params: Mapping[str, str] | None = None, for_click: bool = False
+    ) -> LocatorBundle:
+        handle, info = self._resolve(ref)
+        viewport = self.page.viewport_size or {
+            "width": self._config.viewport[0],
+            "height": self._config.viewport[1],
+        }
+        return locators.harvest_element(
+            handle,
+            info,
+            params or {},
+            for_click=for_click,
+            viewport=(viewport["width"], viewport["height"]),
+        )
+
+    def harvest_value(
+        self, value: str, *, anchor_text: str | None = None, params: Mapping[str, str] | None = None
+    ) -> LocatorBundle:
+        return locators.harvest_value(self.page.frames, value, anchor_text, params or {})
+
+    def resolve(self, bundle: LocatorBundle, values: Mapping[str, str] | None = None) -> Resolved:
+        given = dict(values or {})
+        frame = locators.find_frame(self.page.main_frame, bundle.frame_path)
+        if frame is None:
+            raise LocatorNotFound(bundle.description, (), "the frame it lives in was not found")
+        attempts: list[LocatorAttempt] = []
+        for index, strategy in enumerate(bundle.strategies):
+            if isinstance(strategy, CoordinatesLocator):
+                attempts.append(LocatorAttempt("coordinates", "matched"))
+                return Resolved(
+                    None, None, index, "coordinates", tuple(attempts), (strategy.x, strategy.y)
+                )
+            try:
+                handle, outcome = locators.single_match(frame, strategy, given)
+            except KeyError as exc:
+                raise SurfaceError(
+                    f"no value was given for input {exc.args[0]!r}, which the locator "
+                    f"{bundle.description!r} needs"
+                ) from exc
+            attempts.append(LocatorAttempt(strategy.kind, outcome))
+            if handle is not None:
+                info = describe_handle(handle, self._refs, self._secrets.values())
+                return Resolved(info.ref, info, index, strategy.kind, tuple(attempts))
+        raise LocatorNotFound(bundle.description, tuple(attempts))
+
+    def read_text(self, ref: str) -> str:
+        handle, _ = self._resolve(ref)
+        return mask_text(str(handle.evaluate(ELEMENT_TEXT_JS)), self._secrets.values())
 
     def element_info(self, ref: str) -> ElementInfo:
         info = self._refs.infos.get(ref)
