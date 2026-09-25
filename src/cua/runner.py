@@ -178,12 +178,13 @@ def discover_task(
     def keep(name: str, png: bytes) -> None:
         (evidence_dir / f"{name}.png").write_bytes(png)
 
+    llm = llm_for(log)  # first: a missing key or a stopped server should not start a browser
     surface = PlaywrightSurface(SurfaceConfig(headless=not headed), secrets=secrets)
     try:
         surface.open()
         gateway = ActionGateway(surface, policy, log)
         loop = DiscoveryLoop(
-            surface, gateway, llm_for(log), log, limits=limits, run_id=run_id, on_screenshot=keep
+            surface, gateway, llm, log, limits=limits, run_id=run_id, on_screenshot=keep
         )
         recorded = loop.run(task)
     finally:

@@ -23,10 +23,18 @@ Python 3.12 and [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync
 uv run playwright install chromium
-cp .env.example .env        # then put your ANTHROPIC_API_KEY in .env
+cp .env.example .env        # then put ONE model key in .env (below)
 ```
 
 `.env` is gitignored. Only **discovery** calls a model; replay, the catalog and the whole test suite need no key. The mock's sign-in (`teller01` / `demo-only`) is synthetic and already in `.env.example`.
+
+Discovery works with any of three models, chosen with `cua run --provider`:
+
+| `--provider` | Needs | Notes |
+|---|---|---|
+| `anthropic` (default) | `ANTHROPIC_API_KEY` | Claude; prompt caching; screenshots sent alongside the page description |
+| `gemini` | `GEMINI_API_KEY`, free from [aistudio.google.com/apikey](https://aistudio.google.com/apikey), no card | Gemini 2.5 Flash by default; the free tier is rate limited, and the adapter waits and retries |
+| `ollama` | a local `ollama serve` | No key and nothing leaves the machine. Text only. I tried `llama3.1:8b` and it was too weak for this loop (it typed a member number into the password field), so use a larger model |
 
 ## Run it without any live service
 
@@ -49,7 +57,8 @@ Terminal 2:
 
 ```bash
 # 1. Discover (the only step that uses the model). Saves capabilities/member_lookup.json
-uv run cua run --task member_lookup --evidence evidence/01-discovery
+uv run cua run --task member_lookup --provider gemini --evidence evidence/01-discovery
+#    (--provider anthropic is the default; the model used is recorded in evidence/01-discovery/summary.json)
 
 # 2. Read what it learned, the way a reviewer would
 uv run cua show member_lookup

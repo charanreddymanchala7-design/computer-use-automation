@@ -225,3 +225,48 @@ def test_call_refuses_arguments_that_do_not_fit_the_schema_before_any_browser_st
     assert out.exit_code == 2
     assert "invalid arguments" in out.output
     assert "abc" not in out.output
+
+
+# --- choosing the model -------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("args", "env", "expected"),
+    [
+        ([], {}, ("anthropic", "claude-sonnet-5")),
+        (["--provider", "ollama"], {}, ("ollama", "llama3.1:8b")),
+        (["--provider", "gemini"], {}, ("gemini", "gemini-2.5-flash")),
+        (["--provider", "ollama", "--model", "qwen2.5:14b"], {}, ("ollama", "qwen2.5:14b")),
+        (["--provider", "ollama"], {"CUA_MODEL": "mistral-nemo"}, ("ollama", "mistral-nemo")),
+    ],
+)
+def test_the_provider_and_model_are_chosen_by_flag_then_environment_then_default(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    args: list[str],
+    env: dict[str, str],
+    expected: tuple[str, str],
+) -> None:
+    from cua import cli
+    from cua.llm import LLMConfigError
+
+    chosen: list[tuple[str, str]] = []
+
+    def stop(provider: str, model: str, log: object) -> object:
+        chosen.append((provider, model))
+        raise LLMConfigError("stop here")  # before any browser starts
+
+    monkeypatch.setattr(cli, "make_llm", stop)
+    monkeypatch.delenv("CUA_MODEL", raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.chdir(Path(__file__).resolve().parent.parent)  # for the default policy path
+    out = runner.invoke(app, ["run", "--task", "member_lookup", "--evidence", str(tmp_path), *args])
+    assert out.exit_code == 2, out.output
+    assert chosen == [expected]
+
+
+def test_an_unknown_provider_is_refused() -> None:
+    out = runner.invoke(app, ["run", "--task", "member_lookup", "--provider", "carrier-pigeon"])
+    assert out.exit_code == 2
+    assert "carrier-pigeon" in out.output

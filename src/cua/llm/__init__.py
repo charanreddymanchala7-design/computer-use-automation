@@ -19,11 +19,14 @@ from cua.llm.base import (
     estimate_cost,
 )
 from cua.llm.fake import FakeLLM, say, tool_call
+from cua.llm.gemini_llm import GeminiLLM
+from cua.llm.ollama_llm import OllamaLLM
 
 __all__ = [
     "LLM",
     "AnthropicLLM",
     "FakeLLM",
+    "GeminiLLM",
     "ImagePart",
     "LLMConfigError",
     "LLMError",
@@ -31,6 +34,7 @@ __all__ = [
     "LLMResponse",
     "Message",
     "Meter",
+    "OllamaLLM",
     "Part",
     "TextPart",
     "ToolResult",

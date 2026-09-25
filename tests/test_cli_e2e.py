@@ -166,7 +166,7 @@ def test_run_discovers_and_saves_a_capability_with_its_evidence(
     mock: MockHandle, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     script: list[Any] = lookup_script()
-    monkeypatch.setattr(cli, "make_llm", lambda model, log: FakeLLM(script))
+    monkeypatch.setattr(cli, "make_llm", lambda provider, model, log: FakeLLM(script))
     out = runner.invoke(
         cli.app,
         [
@@ -224,7 +224,7 @@ def test_a_run_that_does_not_finish_exits_30_and_saves_nothing(
 ) -> None:
     from cua.llm import say
 
-    monkeypatch.setattr(cli, "make_llm", lambda model, log: FakeLLM([say("hmm")] * 5))
+    monkeypatch.setattr(cli, "make_llm", lambda provider, model, log: FakeLLM([say("hmm")] * 5))
     out = runner.invoke(
         cli.app,
         [

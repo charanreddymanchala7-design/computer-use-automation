@@ -33,13 +33,21 @@ from cua.demo.memberserv import TASKS
 from cua.evlog import EventLog
 from cua.llm import LLM, LLMConfigError
 from cua.llm.anthropic_llm import AnthropicLLM
+from cua.llm.gemini_llm import DEFAULT_MODEL as GEMINI_DEFAULT_MODEL
+from cua.llm.gemini_llm import GeminiLLM
+from cua.llm.ollama_llm import DEFAULT_MODEL as OLLAMA_DEFAULT_MODEL
+from cua.llm.ollama_llm import OllamaLLM
 from cua.policy import Policy
 from cua.report import mark_up, mask_inputs, progress_lines, render_result
 from cua.runner import OPERATORS, discover_task, load_policy, replay_capability
 
 DEFAULT_TARGET = "http://127.0.0.1:4310"
 DEFAULT_POLICY = Path("policies/memberserv.json")
-DEFAULT_MODEL = "claude-sonnet-5"
+PROVIDERS = {
+    "anthropic": "claude-sonnet-5",
+    "gemini": GEMINI_DEFAULT_MODEL,
+    "ollama": OLLAMA_DEFAULT_MODEL,
+}
 
 app = typer.Typer(
     name="cua",
@@ -49,8 +57,12 @@ app = typer.Typer(
 )
 
 
-def make_llm(model: str, log: EventLog) -> LLM:
+def make_llm(provider: str, model: str, log: EventLog) -> LLM:
     """The one place a live model is created; tests substitute a scripted one here."""
+    if provider == "ollama":
+        return OllamaLLM(model, log=log)
+    if provider == "gemini":
+        return GeminiLLM(model, log=log)
     return AnthropicLLM(model, log=log)
 
 
@@ -241,7 +253,12 @@ def run(
     capabilities: Annotated[Path, typer.Option(help="Where the capability is saved")] = Path(
         "capabilities"
     ),
-    model: Annotated[str, typer.Option(help="The model that explores the application")] = "",
+    provider: Annotated[
+        str, typer.Option(help=f"Where the model runs: {', '.join(PROVIDERS)}")
+    ] = "anthropic",
+    model: Annotated[
+        str, typer.Option(help="The model that explores it (default depends on the provider)")
+    ] = "",
     headed: Annotated[bool, typer.Option(help="Show the browser window")] = False,
     max_steps: Annotated[int, typer.Option(help="Model calls before giving up")] = 40,
     no_color: Annotated[bool, typer.Option("--no-color")] = False,
@@ -251,16 +268,22 @@ def run(
     load_dotenv(Path(".env"))
     if task not in TASKS:
         raise typer.BadParameter(f"{task!r}: choose one of {', '.join(TASKS)}", param_hint="--task")
+    if provider not in PROVIDERS:
+        raise typer.BadParameter(
+            f"{provider!r}: choose one of {', '.join(PROVIDERS)}", param_hint="--provider"
+        )
     guard = _policy(policy)
-    chosen = model or os.environ.get("CUA_MODEL") or DEFAULT_MODEL
+    chosen = model or os.environ.get("CUA_MODEL") or PROVIDERS[provider]
     folder = evidence or Path("runs") / f"discover-{task}-{_stamp()}"
     color = _color(no_color)
     names = TASKS[task][0](target).secrets
-    typer.echo(mark_up("info", f"discovering '{task}' with {chosen} on {target}", color=color))
+    typer.echo(
+        mark_up("info", f"discovering '{task}' with {provider}:{chosen} on {target}", color=color)
+    )
     try:
         found = discover_task(
             task,
-            lambda log: make_llm(chosen, log),
+            lambda log: make_llm(provider, chosen, log),
             base_url=target,
             policy=guard,
             evidence_dir=folder,

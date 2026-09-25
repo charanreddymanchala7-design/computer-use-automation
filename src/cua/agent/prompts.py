@@ -26,7 +26,12 @@ success=false and say why.
 says it is processing, use `act` with kind wait_for and the text you expect next.
 7. Be efficient: the fewest steps that reliably reach the goal. Every step is recorded so it \
 can be replayed later without you, so do not click around aimlessly.
-8. When the goal is achieved and every requested output is extracted, call `finish` with \
+8. Fill a form completely before you submit it: a sign-in needs the user id and the password, \
+so look at every input in the description, not only the first. Only wait for text that you have \
+already seen on a page.
+9. If an action did not have the effect you expected, read the new description carefully and \
+correct the step (for example a field you skipped) before trying anything else.
+10. When the goal is achieved and every requested output is extracted, call `finish` with \
 success=true and a one-sentence summary.
 """
 
