@@ -6,7 +6,7 @@ risky, what needs a human's yes, and that every decision leaves a redacted trace
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import pytest
@@ -78,6 +78,18 @@ class FakeSurface:
 
     def set_request_guard(self, guard: Callable[[RequestInfo], bool] | None) -> None:
         self.guard = guard
+
+    def current_url(self) -> str:
+        return f"{BASE}/msv/x"
+
+    def pause(self, ms: int) -> None:
+        return None
+
+    def add_secrets(self, secrets: Mapping[str, str]) -> None:
+        return None
+
+    def set_dialog_policy(self, policy: Callable[[str, str], bool] | None) -> None:
+        return None
 
     def reset(self) -> None:
         return None

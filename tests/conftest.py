@@ -57,9 +57,11 @@ def mock() -> Iterator[MockHandle]:
     thread.join(timeout=5)
 
 
-def _bundle(*strategies: dict[str, Any], frame: str | None = "main") -> dict[str, Any]:
+def _bundle(
+    *strategies: dict[str, Any], frame: str | None = "main", description: str = "element"
+) -> dict[str, Any]:
     return {
-        "description": "element",
+        "description": description,
         "frame_path": [{"name": frame}] if frame else [],
         "strategies": list(strategies),
     }
@@ -120,6 +122,7 @@ def capability_dict() -> dict[str, Any]:
                         "attributes": {"name": "mno"},
                         "rationale": "name attribute is stable even without a label",
                     },
+                    description="member number field",
                 ),
                 "value": {"source": "param", "name": "member_id"},
                 "risk_class": "read",
@@ -140,6 +143,7 @@ def capability_dict() -> dict[str, Any]:
                         "text": "Search",
                         "rationale": "Fallback on visible text",
                     },
+                    description="search button",
                 ),
                 "risk_class": "read",
                 "expect": {"text_present": ["Search results"]},
@@ -157,6 +161,7 @@ def capability_dict() -> dict[str, Any]:
                         "rationale": "Row labelled Savings holds the balance",
                     },
                     frame="accounts",
+                    description="savings balance",
                 ),
                 "output": "savings_balance",
                 "risk_class": "read",

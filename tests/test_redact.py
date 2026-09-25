@@ -159,6 +159,11 @@ def test_the_default_clock_stamps_events_in_timezone_aware_utc(tmp_path: Path) -
     assert stamp.utcoffset().total_seconds() == 0  # type: ignore[union-attr]
 
 
+def test_the_log_exposes_its_redactor_so_callers_redact_the_same_way(tmp_path: Path) -> None:
+    log = make_log(tmp_path, Redactor(secrets=["hunter2"]))
+    assert "hunter2" not in log.redactor.redact_text("the word is hunter2")
+
+
 def test_omitted_fields_are_left_out_not_null(tmp_path: Path) -> None:
     log = make_log(tmp_path)
     log.emit("start")

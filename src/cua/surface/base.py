@@ -246,6 +246,22 @@ class Surface(Protocol):
 
     def wait_for_text(self, text: str, *, timeout_ms: int = 5000) -> bool: ...
 
+    def current_url(self) -> str:
+        """The top-level URL right now."""
+        ...
+
+    def pause(self, ms: int) -> None:
+        """Wait while the surface keeps handling its own events (unlike a bare sleep)."""
+        ...
+
+    def add_secrets(self, secrets: Mapping[str, str]) -> None:
+        """Make more named secrets available to `fill`, and mask them from now on."""
+        ...
+
+    def set_dialog_policy(self, policy: Callable[[str, str], bool] | None) -> None:
+        """Decide native dialogs: (kind, message) -> accept. None restores the default."""
+        ...
+
     def set_request_guard(self, guard: RequestGuard | None) -> None:
         """Route every request the surface makes through ``guard``; blocked ones never leave."""
         ...

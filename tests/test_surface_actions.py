@@ -17,7 +17,7 @@ from cua.surface import (
 pytestmark = pytest.mark.browser
 
 
-# --- acting by ref ----------------------------------------------------------------------------
+# --- acting by ref -----------------------------------------------------------------------------
 
 
 def test_a_javascript_link_in_one_frame_drives_another_frame(
@@ -152,7 +152,7 @@ def test_a_ref_from_before_a_navigation_is_stale_not_silently_wrong(
         surface.act(Action.fill(number.ref, text="1"))
 
 
-# --- secrets ----------------------------------------------------------------------------------
+# --- secrets -----------------------------------------------------------------------------------
 
 
 def test_a_secret_is_typed_from_its_name_and_never_echoed(
@@ -180,6 +180,46 @@ def test_fill_needs_exactly_one_of_text_or_secret() -> None:
         Action.fill("e1")
     with pytest.raises(ValueError, match="exactly one"):
         Action.fill("e1", text="a", secret="B")
+
+
+# --- what replay needs from a surface ----------------------------------------------------------
+
+
+def test_current_url_and_pause_are_available_without_an_observation(
+    surface: PlaywrightSurface, mock: MockHandle
+) -> None:
+    surface.act(Action.navigate(f"{mock.base}/msv/login.cgi"))
+    assert surface.current_url() == f"{mock.base}/msv/login.cgi"
+    surface.pause(20)  # returns; browser events keep flowing while it waits
+
+
+def test_secrets_can_be_added_after_the_surface_is_open(
+    surface: PlaywrightSurface, mock: MockHandle
+) -> None:
+    surface.act(Action.navigate(f"{mock.base}/msv/login.cgi"))
+    obs = surface.observe()
+    with pytest.raises(UnknownSecretError):
+        surface.act(Action.fill(find(obs, name="u").ref, secret="LATE_USER"))
+    surface.add_secrets({"LATE_USER": "teller01"})
+    assert surface.act(Action.fill(find(obs, name="u").ref, secret="LATE_USER")).ok
+    assert "teller01" not in repr(surface.observe().frames)  # and it is masked from now on
+
+
+def test_a_dialog_policy_can_dismiss_a_dialog_nobody_declared(
+    surface: PlaywrightSurface, mock: MockHandle
+) -> None:
+    obs = open_member(surface, mock)
+    surface.act(Action.click(by_text(obs, "Open Sub-Account").ref))
+    obs = surface.observe()
+    surface.act(Action.fill(find(obs, name="F8").ref, text="25.00"))
+    surface.set_dialog_policy(lambda kind, message: False)
+    result = surface.act(Action.click(find(obs, value="Submit").ref))
+    assert [(d.kind, d.accepted) for d in result.dialogs] == [("confirm", False)]
+    assert mock.server.state.confirmations == 0  # dismissing the confirm cancelled the submit
+    surface.set_dialog_policy(None)  # back to the configured default
+    obs = surface.observe()
+    surface.act(Action.click(find(obs, value="Submit").ref))
+    assert surface.wait_for_text("SUB-ACCOUNT OPENED", timeout_ms=8000)
 
 
 # --- reset ---

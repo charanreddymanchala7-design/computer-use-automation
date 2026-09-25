@@ -1,6 +1,32 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "DegradedLocator": {
+      "additionalProperties": false,
+      "description": "A step that was found, but not by its first-choice strategy: an early sign of UI drift.",
+      "properties": {
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "strategy_index": {
+          "minimum": 1,
+          "title": "Strategy Index",
+          "type": "integer"
+        },
+        "strategy_kind": {
+          "title": "Strategy Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "strategy_index",
+        "strategy_kind"
+      ],
+      "title": "DegradedLocator",
+      "type": "object"
+    },
     "EscalationInfo": {
       "additionalProperties": false,
       "properties": {
@@ -237,6 +263,13 @@
         "$ref": "#/$defs/RecoveryRecord"
       },
       "title": "Recoveries",
+      "type": "array"
+    },
+    "degraded": {
+      "items": {
+        "$ref": "#/$defs/DegradedLocator"
+      },
+      "title": "Degraded",
       "type": "array"
     },
     "evidence": {

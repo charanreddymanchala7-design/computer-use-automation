@@ -14,6 +14,7 @@ from cua.result import (
     EXIT_CODES,
     BusinessOutcome,
     CuaError,
+    DegradedLocator,
     EscalationRequired,
     EvidenceRefs,
     HardFailure,
@@ -175,6 +176,27 @@ def test_recoveries_are_metadata_on_the_final_status() -> None:
     assert result.recoveries == [
         RecoveryRecord(rule_id="welcome_interstitial", step_id="s2", kind="dismiss", attempts=1)
     ]
+
+
+def test_a_lower_ranked_locator_matching_is_reported_as_drift_without_failing_the_run() -> None:
+    result = ReplayResult.model_validate(
+        success(
+            degraded=[
+                {"step_id": "s5", "strategy_index": 1, "strategy_kind": "attribute_fingerprint"}
+            ]
+        )
+    )
+    assert result.status is Status.SUCCESS
+    assert result.degraded == [
+        DegradedLocator(step_id="s5", strategy_index=1, strategy_kind="attribute_fingerprint")
+    ]
+    assert ReplayResult.model_validate(success()).degraded == []
+
+
+def test_drift_is_carried_onto_failures_too() -> None:
+    drift = [DegradedLocator(step_id="s5", strategy_index=2, strategy_kind="text")]
+    result = build(BusinessOutcome("member_not_found"), degraded=drift)
+    assert result.degraded == drift
 
 
 def test_duration_cannot_be_negative() -> None:

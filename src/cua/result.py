@@ -100,6 +100,14 @@ class RecoveryRecord(StrictModel):
     attempts: int = Field(ge=1)
 
 
+class DegradedLocator(StrictModel):
+    """A step that was found, but not by its first-choice strategy: an early sign of UI drift."""
+
+    step_id: str
+    strategy_index: int = Field(ge=1)
+    strategy_kind: str
+
+
 class EvidenceRefs(StrictModel):
     """Paths, relative to the run directory, of the richer signals kept for debugging."""
 
@@ -142,6 +150,7 @@ class ReplayResult(StrictModel):
     observed: str | None = Field(default=None, min_length=1)
     escalation: EscalationInfo | None = None
     recoveries: list[RecoveryRecord] = Field(default_factory=list)
+    degraded: list[DegradedLocator] = Field(default_factory=list)
     evidence: EvidenceRefs = Field(default_factory=EvidenceRefs)
     duration_ms: int = Field(ge=0)
 
@@ -175,6 +184,7 @@ class ReplayResult(StrictModel):
         run_id: str,
         duration_ms: int,
         recoveries: list[RecoveryRecord] | None = None,
+        degraded: list[DegradedLocator] | None = None,
         evidence: EvidenceRefs | None = None,
     ) -> Self:
         """Turn whatever ended a run into the one result a caller understands."""
@@ -184,6 +194,7 @@ class ReplayResult(StrictModel):
             "run_id": run_id,
             "duration_ms": duration_ms,
             "recoveries": recoveries or [],
+            "degraded": degraded or [],
             "evidence": evidence or EvidenceRefs(),
         }
         return cls(**common, **_error_fields(exc))

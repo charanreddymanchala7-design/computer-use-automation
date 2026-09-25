@@ -21,6 +21,7 @@ from cua.surface import (
     Observation,
     RequestInfo,
     Resolved,
+    Surface,
     UnknownRefError,
 )
 
@@ -126,6 +127,18 @@ class FakeRecordingSurface:
     def set_request_guard(self, guard: Callable[[RequestInfo], bool] | None) -> None:
         self.guard = guard
 
+    def current_url(self) -> str:
+        return f"{BASE}/msv/x.cgi"
+
+    def pause(self, ms: int) -> None:
+        return None
+
+    def add_secrets(self, secrets: Mapping[str, str]) -> None:
+        return None
+
+    def set_dialog_policy(self, policy: Callable[[str, str], bool] | None) -> None:
+        return None
+
     def reset(self) -> None:
         return None
 
@@ -171,6 +184,6 @@ def policy() -> Policy:
     )
 
 
-def make_gateway(surface: FakeRecordingSurface, tmp_path: Path) -> tuple[ActionGateway, EventLog]:
+def make_gateway(surface: Surface, tmp_path: Path) -> tuple[ActionGateway, EventLog]:
     log = EventLog(tmp_path / "run.jsonl", run_id="run_t", redactor=Redactor())
     return ActionGateway(surface, policy(), log), log
