@@ -4,6 +4,7 @@ without a browser; the end-to-end commands run in real Chromium (see test_cli_e2
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -126,10 +127,11 @@ def test_find_capability_prefers_a_real_path_then_the_capabilities_folder(
 
 
 def test_json_flag_is_documented() -> None:
-    out = runner.invoke(app, ["replay", "--help"])
-    assert "--json" in out.output
-    assert "NO_COLOR" in out.output or "--no-color" in out.output
-    assert json.loads('{"a": 1}') == {"a": 1}
+    # CI forces colour, and rich then splits "--json" with escape codes: read the plain text
+    out = runner.invoke(app, ["replay", "--help"], env={"NO_COLOR": "1", "FORCE_COLOR": ""})
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", out.output)
+    assert "--json" in plain
+    assert "--no-color" in plain
 
 
 # --- the agent-facing catalog -------------------------------------------------------------------
