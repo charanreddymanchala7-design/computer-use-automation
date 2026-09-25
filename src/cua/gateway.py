@@ -104,6 +104,9 @@ class ActionGateway:
         self._log = log
         self._pending: dict[str, str] = {}  # confirmation id -> action key, awaiting a human
         self._granted: dict[str, str] = {}  # confirmation id -> action key, confirmed, unused
+        # Navigations the network guard refused. An action that provoked one did not do what it
+        # looked like, so callers use this to avoid recording it.
+        self.blocked_navigations: list[str] = []
         if guard_requests:
             surface.set_request_guard(self._request_allowed)
 
@@ -223,6 +226,8 @@ class ActionGateway:
     def _request_allowed(self, request: RequestInfo) -> bool:
         decision = self._policy.url_decision(request.url)
         if not decision.allowed:
+            if request.is_navigation:
+                self.blocked_navigations.append(request.url)
             self._log.emit(
                 "url_blocked",
                 outcome="blocked",

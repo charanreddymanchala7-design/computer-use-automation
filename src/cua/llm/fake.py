@@ -22,7 +22,7 @@ def say(text: str) -> LLMResponse:
     return LLMResponse(text=text, stop_reason="end_turn")
 
 
-def tool_call(name: str, **arguments: Any) -> LLMResponse:
+def tool_call(name: str, /, **arguments: Any) -> LLMResponse:
     """The model asking for one tool to be run."""
     call = ToolUse(id=f"tu_fake_{next(_ids)}", name=name, input=dict(arguments))
     return LLMResponse(text="", tool_calls=(call,), stop_reason="tool_use")
