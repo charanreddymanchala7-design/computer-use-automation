@@ -1,0 +1,4 @@
+The person is scripts/simulate_operator.py: a second client attached to the run's own
+browser over its loopback debug port, using the operator API to take control and
+hand back.
+{"request": "ir_05-handoff_1", "signed_in": true}

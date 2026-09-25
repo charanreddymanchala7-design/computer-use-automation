@@ -51,6 +51,7 @@ from cua.surface.base import (
     SurfaceUnavailable,
     UnknownRefError,
     UnknownSecretError,
+    audit_label,
 )
 from cua.surface.capture import CAPTURE_JS, action_from_payload
 from cua.surface.observe import (
@@ -83,8 +84,7 @@ def _first_line(exc: BaseException) -> str:
 
 
 def _describe(info: ElementInfo) -> str:
-    label = info.text or info.label_hint or info.attrs.get("name") or ""
-    return f"{info.ref} <{info.tag}> {label[:60]!r}".rstrip()
+    return audit_label(info)
 
 
 class PlaywrightSurface:

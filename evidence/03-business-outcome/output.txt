@@ -1,0 +1,16 @@
+[--] member_lookup@1.0.0 inputs: {'member_id': '***99'}
+[--] replaying member_lookup@1.0.0 (no model is involved)
+[ok] s1 open the start page
+[ok] s2 Enter user id
+[ok] s3 Enter password
+[ok] s4 Click login button
+[ok] s5 Enter member number
+[ok] s6 Click Go to search member
+
+[!!] RESULT  business_outcome  (exit 10)
+    outcome   member_not_found
+    message   No member matches the supplied number
+    duration  0.6 s
+[--] evidence: evidence/03-business-outcome
+
+(exit code 10)

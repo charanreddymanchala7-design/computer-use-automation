@@ -1,0 +1,24 @@
+[--] member_lookup@1.0.0 inputs: {'member_id': '***45'}
+[--] replaying member_lookup@1.0.0 (no model is involved)
+[ok] s1 open the start page
+[ok] s2 Enter user id
+[ok] s3 Enter password
+[ok] s4 Click login button
+[ok] s5 Enter member number
+[ok] s6 Click Go to search member
+
+[xx] RESULT  hard_failure  (exit 30)
+    outcome      app_error
+    message      The application reported an error. If this capability changes state, check whether the change was applied before trying again
+    failed step  s7
+    expected     element tr containing {member_id}
+    observed     condition 'app_error' detected: 09/25/2026 User: <redacted:secret> Log Off
+FICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC | Member Inquiry
+Loans
+Admin
+FICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC | APPLICATION ERROR 0x8004 - CONTACT YOUR SYS
+    evidence     failure.png, page.json
+    duration     0.7 s
+[--] evidence: evidence/04-hard-failure
+
+(exit code 30)

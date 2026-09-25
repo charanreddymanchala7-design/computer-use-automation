@@ -1,0 +1,23 @@
+{
+  "status": "business_outcome",
+  "outcome_code": "member_not_found",
+  "capability_id": "member_lookup",
+  "capability_version": "1.0.0",
+  "run_id": "03-business-outcome",
+  "outputs": null,
+  "message": "No member matches the supplied number",
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "escalation": null,
+  "recoveries": [],
+  "degraded": [],
+  "interventions": [],
+  "evidence": {
+    "screenshot": null,
+    "aria_snapshot": null,
+    "trace": null,
+    "log": null
+  },
+  "duration_ms": 551
+}

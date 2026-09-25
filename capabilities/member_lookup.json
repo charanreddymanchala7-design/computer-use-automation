@@ -1,0 +1,415 @@
+{
+  "schema_version": "1",
+  "id": "member_lookup",
+  "capability_version": "1.0.0",
+  "title": "Look up a member and read their savings balance",
+  "description": "Sign in, find a member by number and read the current share savings balance. Read-only: nothing is changed.",
+  "status": "draft",
+  "target": {
+    "vendor": "Fictional Systems Ltd",
+    "product": "MemberServ",
+    "version_range": ">=3.1,<4",
+    "tenant_profile": "default",
+    "surface": "web"
+  },
+  "inputs": {
+    "type": "object",
+    "properties": {
+      "member_id": {
+        "type": "string",
+        "description": "Member number (five digits)",
+        "pattern": "^[0-9]{5}$"
+      }
+    },
+    "required": [
+      "member_id"
+    ],
+    "additionalProperties": false
+  },
+  "outputs": {
+    "type": "object",
+    "properties": {
+      "savings_balance": {
+        "type": "string",
+        "description": "Current share savings balance, exactly as displayed, for example $2,480.15"
+      }
+    },
+    "required": [
+      "savings_balance"
+    ],
+    "additionalProperties": false
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "action": "navigate",
+      "description": "open the start page",
+      "url_template": "/msv/login.cgi",
+      "locator": null,
+      "value": null,
+      "output": null,
+      "risk_class": "read",
+      "sensitive": false,
+      "expect": null,
+      "dialogs": []
+    },
+    {
+      "id": "s2",
+      "action": "fill",
+      "description": "Enter user id",
+      "url_template": null,
+      "locator": {
+        "description": "input 'User ID'",
+        "frame_path": [],
+        "strategies": [
+          {
+            "rationale": "Anchored on the neighbouring label text in the same row: survives volatile ids and added rows or columns elsewhere",
+            "kind": "ancestor_anchor",
+            "anchor_text": "User ID",
+            "container": "row",
+            "target_role": null,
+            "target_tag": "input",
+            "nth": 0
+          },
+          {
+            "rationale": "Tag plus stable attributes, never the volatile id: survives layout changes, breaks only if the attributes are renamed",
+            "kind": "attribute_fingerprint",
+            "tag": "input",
+            "attributes": {
+              "name": "u"
+            }
+          }
+        ]
+      },
+      "value": {
+        "source": "secret",
+        "name": "MOCK_USER"
+      },
+      "output": null,
+      "risk_class": "read",
+      "sensitive": true,
+      "expect": null,
+      "dialogs": []
+    },
+    {
+      "id": "s3",
+      "action": "fill",
+      "description": "Enter password",
+      "url_template": null,
+      "locator": {
+        "description": "input 'Password'",
+        "frame_path": [],
+        "strategies": [
+          {
+            "rationale": "Anchored on the neighbouring label text in the same row: survives volatile ids and added rows or columns elsewhere",
+            "kind": "ancestor_anchor",
+            "anchor_text": "Password",
+            "container": "row",
+            "target_role": null,
+            "target_tag": "input",
+            "nth": 0
+          },
+          {
+            "rationale": "Tag plus stable attributes, never the volatile id: survives layout changes, breaks only if the attributes are renamed",
+            "kind": "attribute_fingerprint",
+            "tag": "input",
+            "attributes": {
+              "name": "p",
+              "type": "password"
+            }
+          }
+        ]
+      },
+      "value": {
+        "source": "secret",
+        "name": "MOCK_PASS"
+      },
+      "output": null,
+      "risk_class": "read",
+      "sensitive": true,
+      "expect": null,
+      "dialogs": []
+    },
+    {
+      "id": "s4",
+      "action": "click",
+      "description": "Click login button",
+      "url_template": null,
+      "locator": {
+        "description": "input ''",
+        "frame_path": [],
+        "strategies": [
+          {
+            "rationale": "Tag plus stable attributes, never the volatile id: survives layout changes, breaks only if the attributes are renamed",
+            "kind": "attribute_fingerprint",
+            "tag": "input",
+            "attributes": {
+              "type": "image",
+              "alt": "",
+              "src": "login.gif"
+            }
+          }
+        ]
+      },
+      "value": null,
+      "output": null,
+      "risk_class": "read",
+      "sensitive": false,
+      "expect": null,
+      "dialogs": []
+    },
+    {
+      "id": "s5",
+      "action": "fill",
+      "description": "Enter member number",
+      "url_template": null,
+      "locator": {
+        "description": "input 'Member No:'",
+        "frame_path": [
+          {
+            "name": "main",
+            "url_pattern": null,
+            "index": null
+          }
+        ],
+        "strategies": [
+          {
+            "rationale": "Anchored on the neighbouring label text in the same row: survives volatile ids and added rows or columns elsewhere",
+            "kind": "ancestor_anchor",
+            "anchor_text": "Member No:",
+            "container": "row",
+            "target_role": null,
+            "target_tag": "input",
+            "nth": 0
+          },
+          {
+            "rationale": "Tag plus stable attributes, never the volatile id: survives layout changes, breaks only if the attributes are renamed",
+            "kind": "attribute_fingerprint",
+            "tag": "input",
+            "attributes": {
+              "name": "F1"
+            }
+          }
+        ]
+      },
+      "value": {
+        "source": "param",
+        "name": "member_id"
+      },
+      "output": null,
+      "risk_class": "read",
+      "sensitive": false,
+      "expect": null,
+      "dialogs": []
+    },
+    {
+      "id": "s6",
+      "action": "click",
+      "description": "Click Go to search member",
+      "url_template": null,
+      "locator": {
+        "description": "img 'Go'",
+        "frame_path": [
+          {
+            "name": "main",
+            "url_pattern": null,
+            "index": null
+          }
+        ],
+        "strategies": [
+          {
+            "rationale": "Tag plus stable attributes, never the volatile id: survives layout changes, breaks only if the attributes are renamed",
+            "kind": "attribute_fingerprint",
+            "tag": "img",
+            "attributes": {
+              "alt": "Go",
+              "src": "go.gif"
+            }
+          }
+        ]
+      },
+      "value": null,
+      "output": null,
+      "risk_class": "read",
+      "sensitive": false,
+      "expect": null,
+      "dialogs": []
+    },
+    {
+      "id": "s7",
+      "action": "click",
+      "description": "Click on member row to open member details",
+      "url_template": null,
+      "locator": {
+        "description": "tr containing {member_id}",
+        "frame_path": [
+          {
+            "name": "main",
+            "url_pattern": null,
+            "index": null
+          }
+        ],
+        "strategies": [
+          {
+            "rationale": "The text the caller searched for, so the same capability finds the row for any value",
+            "kind": "text",
+            "text": "{member_id}",
+            "exact": false
+          }
+        ]
+      },
+      "value": null,
+      "output": null,
+      "risk_class": "read",
+      "sensitive": false,
+      "expect": null,
+      "dialogs": []
+    },
+    {
+      "id": "s8",
+      "action": "extract",
+      "description": "Extract the current share savings balance for member {member_id}",
+      "url_template": null,
+      "locator": {
+        "description": "value near 'SHARE SAVINGS'",
+        "frame_path": [
+          {
+            "name": "main",
+            "url_pattern": null,
+            "index": null
+          },
+          {
+            "name": "acct",
+            "url_pattern": null,
+            "index": null
+          }
+        ],
+        "strategies": [
+          {
+            "rationale": "The row labelled by this text holds the value: survives added rows and volatile ids, and finds the value whatever it is on a later run",
+            "kind": "ancestor_anchor",
+            "anchor_text": "SHARE SAVINGS",
+            "container": "row",
+            "target_role": null,
+            "target_tag": "td",
+            "nth": 2
+          }
+        ]
+      },
+      "value": null,
+      "output": "savings_balance",
+      "risk_class": "read",
+      "sensitive": false,
+      "expect": null,
+      "dialogs": []
+    }
+  ],
+  "checkpoint": {
+    "url_pattern": "/msv/frameset.cgi",
+    "text_present": [
+      "Member: {member_id}",
+      "SHARE SAVINGS",
+      "Status:"
+    ],
+    "aria_contains": [],
+    "timeout_ms": 10000
+  },
+  "error_map": [
+    {
+      "id": "no_such_member",
+      "detect": {
+        "url_pattern": null,
+        "text_present": [
+          "NO RECORDS FOUND FOR CRITERIA"
+        ],
+        "dialog_message": null,
+        "element": null
+      },
+      "classification": "business_outcome",
+      "message": "No member matches the supplied number",
+      "outcome_code": "member_not_found",
+      "recovery": null,
+      "code": null,
+      "escalate": false
+    },
+    {
+      "id": "session_expired",
+      "detect": {
+        "url_pattern": null,
+        "text_present": [
+          "User ID"
+        ],
+        "dialog_message": null,
+        "element": null
+      },
+      "classification": "hard_failure",
+      "message": "The session expired and signing in again needs credentials that are never stored",
+      "outcome_code": null,
+      "recovery": null,
+      "code": "session_expired",
+      "escalate": true
+    },
+    {
+      "id": "eod_notice",
+      "detect": {
+        "url_pattern": null,
+        "text_present": [
+          "SYSTEM NOTICE: END-OF-DAY BATCH"
+        ],
+        "dialog_message": null,
+        "element": null
+      },
+      "classification": "recoverable",
+      "message": null,
+      "outcome_code": null,
+      "recovery": {
+        "kind": "dismiss",
+        "locator": {
+          "description": "Acknowledge button",
+          "frame_path": [
+            {
+              "name": "main",
+              "url_pattern": null,
+              "index": null
+            }
+          ],
+          "strategies": [
+            {
+              "rationale": "The notice's only control, labelled by its visible text",
+              "kind": "text",
+              "text": "Acknowledge",
+              "exact": true
+            }
+          ]
+        },
+        "max_attempts": 2,
+        "backoff_ms": 500
+      },
+      "code": null,
+      "escalate": false
+    },
+    {
+      "id": "app_error",
+      "detect": {
+        "url_pattern": null,
+        "text_present": [
+          "APPLICATION ERROR 0x8004"
+        ],
+        "dialog_message": null,
+        "element": null
+      },
+      "classification": "hard_failure",
+      "message": "The application reported an error. If this capability changes state, check whether the change was applied before trying again",
+      "outcome_code": null,
+      "recovery": null,
+      "code": "app_error",
+      "escalate": false
+    }
+  ],
+  "provenance": {
+    "run_id": "01-discovery",
+    "discovered_at": "2026-09-25T13:57:42.993023Z",
+    "model": "gemini-3.5-flash-lite",
+    "steps_observed": 8
+  }
+}

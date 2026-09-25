@@ -1,0 +1,46 @@
+{
+  "status": "success",
+  "outcome_code": "completed",
+  "capability_id": "member_lookup",
+  "capability_version": "1.0.0",
+  "run_id": "05-handoff",
+  "outputs": {
+    "savings_balance": "$2,480.15"
+  },
+  "message": null,
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "escalation": null,
+  "recoveries": [],
+  "degraded": [],
+  "interventions": [
+    {
+      "request_id": "ir_05-handoff_1",
+      "step_id": "s7",
+      "reason_code": "session_expired",
+      "outcome": "handed_back",
+      "taken_by": "simulated operator",
+      "duration_ms": 961,
+      "actions": [
+        "typed 8 characters into text field 'name=u'",
+        "typed into a password field 'name=p'",
+        "click image button",
+        "navigated to /msv/frameset.cgi",
+        "navigated to /msv/hdr.cgi",
+        "navigated to /msv/nav.cgi",
+        "navigated to /msv/search.cgi",
+        "typed 5 characters into text field 'name=F1'",
+        "click img 'Go'",
+        "navigated to /msv/results.cgi"
+      ]
+    }
+  ],
+  "evidence": {
+    "screenshot": null,
+    "aria_snapshot": null,
+    "trace": null,
+    "log": null
+  },
+  "duration_ms": 1877
+}

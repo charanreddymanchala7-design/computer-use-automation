@@ -1,0 +1,23 @@
+{
+  "status": "hard_failure",
+  "outcome_code": "app_error",
+  "capability_id": "member_lookup",
+  "capability_version": "1.0.0",
+  "run_id": "04-hard-failure",
+  "outputs": null,
+  "message": "The application reported an error. If this capability changes state, check whether the change was applied before trying again",
+  "failed_step": "s7",
+  "expected": "element tr containing {member_id}",
+  "observed": "condition 'app_error' detected: 09/25/2026 User: <redacted:secret> Log Off\nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC | Member Inquiry\nLoans\nAdmin\nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC | APPLICATION ERROR 0x8004 - CONTACT YOUR SYS",
+  "escalation": null,
+  "recoveries": [],
+  "degraded": [],
+  "interventions": [],
+  "evidence": {
+    "screenshot": "failure.png",
+    "aria_snapshot": "page.json",
+    "trace": null,
+    "log": "run.jsonl"
+  },
+  "duration_ms": 661
+}

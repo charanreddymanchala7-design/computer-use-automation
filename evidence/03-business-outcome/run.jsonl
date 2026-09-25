@@ -1,0 +1,22 @@
+{"ts": "2026-09-25T13:57:57.799044+00:00", "run_id": "03-business-outcome", "event": "replay_start", "capability": "member_lookup@1.0.0"}
+{"ts": "2026-09-25T13:57:57.799766+00:00", "run_id": "03-business-outcome", "event": "step_start", "step": "s1", "action": "navigate"}
+{"ts": "2026-09-25T13:57:57.871408+00:00", "run_id": "03-business-outcome", "event": "action", "step": "s1", "action": "navigate", "target": "http://127.0.0.1:62326/msv/login.cgi", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:57:57.871744+00:00", "run_id": "03-business-outcome", "event": "step_ok", "step": "s1"}
+{"ts": "2026-09-25T13:57:57.871972+00:00", "run_id": "03-business-outcome", "event": "step_start", "step": "s2", "action": "fill"}
+{"ts": "2026-09-25T13:57:57.968382+00:00", "run_id": "03-business-outcome", "event": "action", "step": "s2", "action": "fill", "target": "e1 <input> 'User ID'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_USER"}
+{"ts": "2026-09-25T13:57:57.968787+00:00", "run_id": "03-business-outcome", "event": "step_ok", "step": "s2", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:57:57.969212+00:00", "run_id": "03-business-outcome", "event": "step_start", "step": "s3", "action": "fill"}
+{"ts": "2026-09-25T13:57:58.048058+00:00", "run_id": "03-business-outcome", "event": "action", "step": "s3", "action": "fill", "target": "e2 <input> 'Password'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_PASS"}
+{"ts": "2026-09-25T13:57:58.048473+00:00", "run_id": "03-business-outcome", "event": "step_ok", "step": "s3", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:57:58.048944+00:00", "run_id": "03-business-outcome", "event": "step_start", "step": "s4", "action": "click"}
+{"ts": "2026-09-25T13:57:58.165609+00:00", "run_id": "03-business-outcome", "event": "action", "step": "s4", "action": "click", "target": "e3 <input> ''", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:57:58.165960+00:00", "run_id": "03-business-outcome", "event": "step_ok", "step": "s4", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:57:58.166063+00:00", "run_id": "03-business-outcome", "event": "step_start", "step": "s5", "action": "fill"}
+{"ts": "2026-09-25T13:57:58.249209+00:00", "run_id": "03-business-outcome", "event": "action", "step": "s5", "action": "fill", "target": "e4 <input> 'Member No:'", "outcome": "ok", "reason": "ok", "typed": "99999", "risk": "read"}
+{"ts": "2026-09-25T13:57:58.249539+00:00", "run_id": "03-business-outcome", "event": "step_ok", "step": "s5", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:57:58.249670+00:00", "run_id": "03-business-outcome", "event": "step_start", "step": "s6", "action": "click"}
+{"ts": "2026-09-25T13:57:58.337066+00:00", "run_id": "03-business-outcome", "event": "action", "step": "s6", "action": "click", "target": "e5 <img> 'Go'", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:57:58.337325+00:00", "run_id": "03-business-outcome", "event": "step_ok", "step": "s6", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:57:58.337414+00:00", "run_id": "03-business-outcome", "event": "step_start", "step": "s7", "action": "click"}
+{"ts": "2026-09-25T13:57:58.349762+00:00", "run_id": "03-business-outcome", "event": "condition", "step": "s7", "outcome": "business_outcome", "reason": "no_such_member"}
+{"ts": "2026-09-25T13:57:58.350131+00:00", "run_id": "03-business-outcome", "event": "replay_end", "outcome": "member_not_found", "status": "business_outcome", "duration_ms": 551}
