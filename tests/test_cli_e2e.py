@@ -242,3 +242,48 @@ def test_a_run_that_does_not_finish_exits_30_and_saves_nothing(
     assert out.exit_code == 30, out.output
     assert "[xx] discovery dead_end" in out.output
     assert not (tmp_path / "caps").exists()
+
+
+# --- an agent-style call ------------------------------------------------------------------------
+
+
+def call(capabilities: Path, mock: MockHandle, evidence: Path, args: str) -> Any:
+    return runner.invoke(
+        cli.app,
+        [
+            "capabilities",
+            "call",
+            "member_lookup",
+            "--args",
+            args,
+            "--dir",
+            str(capabilities),
+            "--target",
+            mock.base,
+            "--evidence",
+            str(evidence),
+        ],
+    )
+
+
+def test_an_agent_style_call_returns_a_structured_result_with_no_model(
+    capabilities: Path, mock: MockHandle, tmp_path: Path
+) -> None:
+    out = call(capabilities, mock, tmp_path / "ev", '{"member_id": "12346"}')
+    assert out.exit_code == 0, out.output
+    reply = json.loads(out.output)
+    assert reply["isError"] is False
+    assert reply["structuredContent"]["status"] == "success"
+    assert reply["structuredContent"]["outputs"] == {"savings_balance": "$100.00"}
+    assert json.loads(reply["content"][0]["text"]) == reply["structuredContent"]
+
+
+def test_an_agent_told_no_such_member_gets_an_answer_not_an_error(
+    capabilities: Path, mock: MockHandle, tmp_path: Path
+) -> None:
+    arm(mock, mode="member_not_found")
+    out = call(capabilities, mock, tmp_path / "ev", '{"member_id": "12345"}')
+    assert out.exit_code == 10, out.output
+    reply = json.loads(out.output)
+    assert reply["isError"] is False
+    assert reply["structuredContent"]["outcome_code"] == "member_not_found"

@@ -130,3 +130,96 @@ def test_json_flag_is_documented() -> None:
     assert "--json" in out.output
     assert "NO_COLOR" in out.output or "--no-color" in out.output
     assert json.loads('{"a": 1}') == {"a": 1}
+
+
+# --- the agent-facing catalog -------------------------------------------------------------------
+
+
+def test_capabilities_list_shows_what_each_one_does_to_the_application(saved: Path) -> None:
+    out = runner.invoke(app, ["capabilities", "list", "--dir", str(saved.parent)])
+    assert out.exit_code == 0
+    assert "member_lookup" in out.output
+    assert "1.0.0" in out.output
+    assert "read-only" in out.output
+    assert "member_id" in out.output
+
+
+def test_capabilities_list_says_when_there_are_none(tmp_path: Path) -> None:
+    out = runner.invoke(app, ["capabilities", "list", "--dir", str(tmp_path)])
+    assert out.exit_code == 0
+    assert "no capabilities" in out.output
+
+
+def test_capabilities_schema_prints_the_tool_definition(saved: Path) -> None:
+    out = runner.invoke(
+        app, ["capabilities", "schema", "member_lookup", "--dir", str(saved.parent)]
+    )
+    assert out.exit_code == 0
+    tool = json.loads(out.output)
+    assert tool["name"] == "member_lookup"
+    assert tool["inputSchema"]["required"] == ["member_id"]
+
+
+def test_capabilities_schema_of_an_unknown_tool_lists_the_real_ones(saved: Path) -> None:
+    out = runner.invoke(app, ["capabilities", "schema", "nope", "--dir", str(saved.parent)])
+    assert out.exit_code == 2
+    assert "member_lookup" in out.output
+
+
+def test_export_writes_the_catalog_and_check_notices_when_it_goes_stale(
+    saved: Path, tmp_path: Path
+) -> None:
+    target = tmp_path / "catalog.json"
+    args = ["capabilities", "export", "--dir", str(saved.parent), "--out", str(target)]
+    assert runner.invoke(app, args).exit_code == 0
+    assert json.loads(target.read_text())["tools"][0]["name"] == "member_lookup"
+    assert runner.invoke(app, [*args, "--check"]).exit_code == 0
+    target.write_text('{"version": 1, "tools": []}\n')
+    stale = runner.invoke(app, [*args, "--check"])
+    assert stale.exit_code == 1
+    assert "out of date" in stale.output
+
+
+def test_check_fails_when_the_catalog_file_is_missing(saved: Path, tmp_path: Path) -> None:
+    out = runner.invoke(
+        app,
+        [
+            "capabilities",
+            "export",
+            "--dir",
+            str(saved.parent),
+            "--out",
+            str(tmp_path / "missing.json"),
+            "--check",
+        ],
+    )
+    assert out.exit_code == 1
+
+
+def test_call_refuses_arguments_that_are_not_json(saved: Path) -> None:
+    out = runner.invoke(
+        app,
+        ["capabilities", "call", "member_lookup", "--args", "{oops", "--dir", str(saved.parent)],
+    )
+    assert out.exit_code == 2
+    assert "JSON" in out.output
+
+
+def test_call_refuses_arguments_that_do_not_fit_the_schema_before_any_browser_starts(
+    saved: Path,
+) -> None:
+    out = runner.invoke(
+        app,
+        [
+            "capabilities",
+            "call",
+            "member_lookup",
+            "--args",
+            '{"member_id": "abc"}',
+            "--dir",
+            str(saved.parent),
+        ],
+    )
+    assert out.exit_code == 2
+    assert "invalid arguments" in out.output
+    assert "abc" not in out.output
