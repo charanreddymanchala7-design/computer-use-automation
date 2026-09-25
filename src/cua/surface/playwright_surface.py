@@ -23,6 +23,7 @@ from playwright.sync_api import (
     ElementHandle,
     Page,
     Playwright,
+    Route,
     sync_playwright,
 )
 from playwright.sync_api import Error as PlaywrightError
@@ -34,6 +35,8 @@ from cua.surface.base import (
     DialogEvent,
     ElementInfo,
     Observation,
+    RequestGuard,
+    RequestInfo,
     StaleRefError,
     SurfaceError,
     SurfaceUnavailable,
@@ -81,6 +84,7 @@ class PlaywrightSurface:
         self._refs = RefTable()
         self._dialog_log: list[DialogEvent] = []
         self._act_dialogs: list[DialogEvent] | None = None
+        self._route_handler: Callable[[Route], None] | None = None
 
     # --- lifecycle ----------------------------------------------------------------------------
 
@@ -154,6 +158,7 @@ class PlaywrightSurface:
         context = self._require_context()
         self._refs = RefTable()
         self._dialog_log = []
+        self.set_request_guard(None)  # a guard belongs to one run and must not leak into the next
         context.clear_cookies()
         for extra in context.pages[1:]:
             extra.close()
@@ -180,6 +185,39 @@ class PlaywrightSurface:
         if self._context is None:
             raise SurfaceError("the surface is not open")
         return self._context
+
+    # --- the request guard ----------------------------------------------------------------------
+
+    def set_request_guard(self, guard: RequestGuard | None) -> None:
+        """Every request, including frame navigations, form posts and meta refreshes, passes here.
+
+        Blocking at the network layer is what makes an allowlist real: an in-page link or script
+        can navigate without any action ever being issued. A blocked request is answered with a
+        short 403 page (so the model can read that it was blocked) and never reaches the server.
+        """
+        context = self._require_context()
+        if self._route_handler is not None:
+            context.unroute("**/*", self._route_handler)
+            self._route_handler = None
+        if guard is None:
+            return
+
+        def handler(route: Route) -> None:
+            request = route.request
+            info = RequestInfo(
+                request.url, request.method, request.resource_type, request.is_navigation_request()
+            )
+            try:
+                allowed = guard(info)
+            except Exception:
+                allowed = False
+            if allowed:
+                route.continue_()
+            else:
+                route.fulfill(status=403, content_type="text/plain", body="BLOCKED BY POLICY")
+
+        self._route_handler = handler
+        context.route("**/*", handler)
 
     # --- dialogs ------------------------------------------------------------------------------
 
@@ -209,6 +247,12 @@ class PlaywrightSurface:
             screenshot=self.page.screenshot(type="png"),
             dialogs=dialogs,
         )
+
+    def element_info(self, ref: str) -> ElementInfo:
+        info = self._refs.infos.get(ref)
+        if info is None:
+            raise UnknownRefError(f"unknown ref {ref!r}; refs come from the latest observe")
+        return info
 
     def wait_for_text(self, text: str, *, timeout_ms: int = 5000) -> bool:
         """Poll every frame for visible text; a timeout is an answer (False), not an error."""

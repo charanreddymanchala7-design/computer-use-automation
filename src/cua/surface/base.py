@@ -9,7 +9,7 @@ and accept the same ``Action`` vocabulary, targeting elements by ref or by scree
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Literal, Protocol, Self
 
@@ -121,6 +121,19 @@ class Observation:
 
 # --- what the surface can be asked to do ------------------------------------------------------
 
+
+@dataclass(frozen=True)
+class RequestInfo:
+    """A network request the page is about to make, for the request guard to allow or block."""
+
+    url: str
+    method: str
+    resource_type: str
+    is_navigation: bool
+
+
+RequestGuard = Callable[[RequestInfo], bool]
+
 ActionKind = Literal["navigate", "click", "fill", "select", "press", "wait"]
 MAX_WAIT_MS = 30_000
 
@@ -185,7 +198,15 @@ class Surface(Protocol):
 
     def act(self, action: Action) -> ActionResult: ...
 
+    def element_info(self, ref: str) -> ElementInfo:
+        """The facts about a ref from the latest observation (raises UnknownRefError)."""
+        ...
+
     def wait_for_text(self, text: str, *, timeout_ms: int = 5000) -> bool: ...
+
+    def set_request_guard(self, guard: RequestGuard | None) -> None:
+        """Route every request the surface makes through ``guard``; blocked ones never leave."""
+        ...
 
     def reset(self) -> None: ...
 
