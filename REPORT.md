@@ -15,7 +15,7 @@ Decisions and their cost:
 1. **Custom observe/act tools, not the provider's computer-use tool.** The common case here has no clean DOM (framesets, nested tables, no test IDs), so I need per-frame perception, refs the harness owns, and locators verified against the live page. Cost: more code, and a structure-first bias with coordinates as the fallback.
 2. **The model never writes the artifact.** It acts, the harness records, synthesis is code. The model can shape *what* is recorded but cannot put a selector or value into the artifact that the harness did not verify.
 3. **Synchronous, one process.** Playwright's sync API allows one instance per thread, so loop, replay and browser share a thread and operator channels touch only the thread-safe lease. Cost: no parallel runs; a queue with workers is the scaling step and nothing blocks it.
-4. **A thin model interface** (`LLM.step()`: messages and tools in, tool calls and token accounting out), with only metadata logged and a scripted `FakeLLM` so CI needs no key.
+4. **A thin model interface** (`LLM.step()`: messages and tools in, tool calls and token accounting out), with only metadata logged. It has three real implementations (Claude, Gemini, a local Ollama model) and a scripted `FakeLLM`, so CI needs no key and the take-home does not depend on one paid account. Which model produced a capability is recorded in its provenance.
 5. **A hostile mock with fault injection and a server-side log of what really happened.** Most bugs I found (a password leaking into the accessibility snapshot, a forbidden navigation being recorded as a step) surfaced because the mock could tell me the truth.
 
 ## Artifact schema
