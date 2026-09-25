@@ -17,6 +17,9 @@ dependencies = [
   "jsonschema>=4.23,<5",
 ]
 
+[project.scripts]
+cua = "cua.cli:main"
+
 [dependency-groups]
 dev = [
   "pytest>=9,<10",

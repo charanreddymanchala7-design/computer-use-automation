@@ -1,0 +1,4 @@
+{
+  "allow": [{"host": "127.0.0.1", "path_prefix": "/msv/"}],
+  "deny": [{"host": "127.0.0.1", "path_prefix": "/msv/admin.cgi"}]
+}

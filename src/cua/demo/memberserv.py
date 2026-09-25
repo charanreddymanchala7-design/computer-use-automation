@@ -8,6 +8,8 @@ once, as the capability's error map, and travel with the artifact.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from cua.agent import DiscoveryTask, OutputSpec, ParamSpec
 from cua.artifact import ErrorRule, Target
 from cua.artifact.synthesize import CapabilitySpec
@@ -146,3 +148,10 @@ def open_subaccount_spec() -> CapabilitySpec:
         target=TARGET,
         error_map=[NO_SUCH_MEMBER, DEPOSIT_REJECTED, SESSION_EXPIRED, EOD_NOTICE, APP_ERROR],
     )
+
+
+# What `cua run --task NAME` can discover: the task the model is given and what a person decided.
+TASKS: dict[str, tuple[Callable[[str], DiscoveryTask], Callable[[], CapabilitySpec]]] = {
+    "member_lookup": (lookup_task, lookup_spec),
+    "open_subaccount": (open_subaccount_task, open_subaccount_spec),
+}
