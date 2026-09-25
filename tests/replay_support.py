@@ -57,6 +57,7 @@ class FakeReplaySurface:
         self.on_act: Callable[[Action], None] | None = None
         self.on_click: dict[str, Callable[[FakeReplaySurface], None]] = {}  # by bundle description
         self.pauses: list[int] = []
+        self.on_pause: Callable[[FakeReplaySurface], None] | None = None  # a "human" acting
         self.secrets: dict[str, str] = {}
         self.policy: Callable[[str, str], bool] | None = None
         self.resolved_values: list[dict[str, str]] = []
@@ -98,6 +99,8 @@ class FakeReplaySurface:
     def pause(self, ms: int) -> None:
         self.pauses.append(ms)
         self.clock.advance(ms / 1000)
+        if self.on_pause is not None:
+            self.on_pause(self)
         for text, after in self.appear_after.items():
             if len(self.pauses) >= after:
                 self.texts.add(text)

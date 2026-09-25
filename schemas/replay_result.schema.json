@@ -114,6 +114,59 @@
       "title": "EvidenceRefs",
       "type": "object"
     },
+    "InterventionRecord": {
+      "additionalProperties": false,
+      "description": "A person was brought in during the run, and how that ended.",
+      "properties": {
+        "request_id": {
+          "title": "Request Id",
+          "type": "string"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "reason_code": {
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "handed_back",
+            "aborted",
+            "timed_out"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "taken_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Taken By"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request_id",
+        "step_id",
+        "reason_code",
+        "outcome",
+        "duration_ms"
+      ],
+      "title": "InterventionRecord",
+      "type": "object"
+    },
     "RecoveryRecord": {
       "additionalProperties": false,
       "description": "A known condition that was handled without ending the run.",
@@ -270,6 +323,13 @@
         "$ref": "#/$defs/DegradedLocator"
       },
       "title": "Degraded",
+      "type": "array"
+    },
+    "interventions": {
+      "items": {
+        "$ref": "#/$defs/InterventionRecord"
+      },
+      "title": "Interventions",
       "type": "array"
     },
     "evidence": {

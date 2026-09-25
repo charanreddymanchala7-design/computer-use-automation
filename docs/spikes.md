@@ -65,9 +65,24 @@ the asyncio loop". Consequences:
 - Playwright dismisses dialogs nobody handles, so a `confirm` would silently return false. The
   surface registers a handler on the context before any action and records every dialog.
 
+## 7. The handoff (verified in `tests/test_handoff_e2e.py`)
+
+- **The waiting agent must keep the browser's event loop turning.** The synchronous API only
+  services page events and dialogs while its thread is inside a browser call, so `Handoff` waits
+  with `surface.pause(250)` in a loop, never a blocking sleep or a bare condition wait.
+- **A second client really does share the live session.** A separate process attached over the
+  loopback debug port signs in and searches in the same window; the run's next look at the page
+  sees exactly that, and `browser.close()` on the second client only detaches it.
+- **The person's identity and the hand-back travel over the operator API, not the browser.**
+  The page a person works in is never instrumented, so a handoff changes nothing about the app.
+- **Dialogs raised while a person holds control are cancelled and logged.** The surface's normal
+  policy (accept a confirm) would otherwise approve an irreversible action on their behalf. This
+  is unit-tested against the surface seam only.
+
 ## Still unverified
 
-- What happens to a pending native dialog while a human holds control of the session
-  (decided in task 2.3.2, and recorded here then).
+- Whether a person can *accept* a native dialog by hand in a headed window while a handler is
+  registered on the page. The safe answer (cancel) is what ships; letting a person answer it
+  themselves is a cut.
 - Behaviour of `<select>` popups under a screencast (not needed: the chosen handoff uses the
   real headed window).

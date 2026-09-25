@@ -26,6 +26,7 @@ LOAD_BEARING: dict[str, str] = {
     "policy": "src/cua/policy.py",
     "redaction": "src/cua/redact.py",
     "control lease": "src/cua/control/lease.py",
+    "handoff": "src/cua/control/handoff.py",
 }
 
 

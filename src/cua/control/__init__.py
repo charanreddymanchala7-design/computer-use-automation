@@ -1,5 +1,6 @@
 """Who is in control of the live session, and why a person is needed."""
 
+from cua.control.handoff import Handoff, HandoffResult, Operator
 from cua.control.lease import (
     ControlLease,
     Controller,
@@ -20,9 +21,12 @@ __all__ = [
     "HEADLINES",
     "ControlLease",
     "Controller",
+    "Handoff",
+    "HandoffResult",
     "InterventionRequest",
     "LeaseError",
     "LeaseState",
+    "Operator",
     "Phase",
     "StaleEpoch",
     "StuckReason",
