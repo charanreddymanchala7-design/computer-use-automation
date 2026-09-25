@@ -3,16 +3,14 @@ runs it for other inputs with no model involved. Real Chromium, the real mock, t
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from tests.discovery_scripts import discover as discover_capability
 from tests.mockbank_support import MockHandle
-from tests.test_agent_e2e import lookup_script, loop_for, task_for
 
-from cua.artifact import Capability, Target
+from cua.artifact import Capability
 from cua.artifact.store import load_capability, save_capability
-from cua.artifact.synthesize import CapabilitySpec, synthesize
 from cua.evlog import EventLog, read_events
 from cua.gateway import ActionGateway
 from cua.policy import Policy, UrlRule
@@ -24,28 +22,17 @@ from cua.surface import PlaywrightSurface
 pytestmark = pytest.mark.browser
 
 SECRETS = {"MOCK_USER": "teller01", "MOCK_PASS": "demo-only"}
-SPEC = CapabilitySpec(
-    id="member_lookup",
-    title="Look up a member and read their savings balance",
-    description="Sign in, find a member by number and read the current share savings balance.",
-    target=Target(vendor="Fictional Systems", product="MemberServ", version_range=">=3.1,<4"),
-)
 
 
 def discover(
     surface: PlaywrightSurface, mock: MockHandle, tmp_path: Path
 ) -> tuple[Capability, int]:
     """One discovery run with a scripted model; returns the capability and how many model calls."""
-    loop, llm, _, _ = loop_for(surface, tmp_path / "discovery", lookup_script())
-    run = loop.run(task_for(mock))
-    assert run.outcome == "finished", run.reason
-    capability = synthesize(
-        run, task_for(mock), SPEC, now=datetime(2026, 9, 25, tzinfo=UTC)
-    ).capability
+    capability = discover_capability(surface, mock.base, tmp_path)
     # a clean slate for replay: signed out, empty server log
     mock.client().post("/_admin/reset", {})
     surface.reset()
-    return capability, len(llm.calls)
+    return capability, 1
 
 
 def replay(

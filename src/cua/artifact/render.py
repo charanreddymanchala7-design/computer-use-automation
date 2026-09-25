@@ -91,7 +91,7 @@ def _rule_line(rule: ErrorRule) -> str:
     elif rule.classification is ErrorClass.RECOVERABLE and rule.recovery:
         result = f"recovers by {rule.recovery.kind} (up to {rule.recovery.max_attempts} tries)"
     else:
-        result = f"fails with {rule.code}"
+        result = f"fails with {rule.code}" + (" and brings in a human" if rule.escalate else "")
     return f"  {rule.id}: {_CLASS_LABEL[rule.classification]}; when {seen or 'seen'}, {result}"
 
 

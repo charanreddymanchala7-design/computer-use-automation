@@ -434,6 +434,23 @@ def test_error_rules_reject_fields_from_other_classes(capability_dict: dict[str,
         load(capability_dict)
 
 
+def test_a_hard_failure_can_ask_for_a_human_instead_of_stopping(
+    capability_dict: dict[str, Any],
+) -> None:
+    capability_dict["error_map"][2]["escalate"] = True
+    assert load(capability_dict).error_map[2].escalate is True
+    assert load({**capability_dict, "error_map": []}).error_map == []
+    del capability_dict["error_map"][2]["escalate"]
+    assert load(capability_dict).error_map[2].escalate is False  # stopping is the default
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_only_a_hard_failure_can_escalate(capability_dict: dict[str, Any], index: int) -> None:
+    capability_dict["error_map"][index]["escalate"] = True
+    with pytest.raises(ValidationError, match="only a hard_failure can escalate"):
+        load(capability_dict)
+
+
 def test_error_rule_ids_are_unique(capability_dict: dict[str, Any]) -> None:
     capability_dict["error_map"][1]["id"] = "no_such_member"
     with pytest.raises(ValidationError, match="duplicate error rule id"):

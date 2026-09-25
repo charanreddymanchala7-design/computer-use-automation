@@ -23,6 +23,9 @@ import jsonschema
 from cua.artifact import (
     ActionKind,
     Capability,
+    Detector,
+    ErrorClass,
+    ErrorRule,
     Expectation,
     LiteralValue,
     ParamRef,
@@ -34,11 +37,13 @@ from cua.evlog import EventLog, write_redacted_json
 from cua.gateway import ActionGateway, Decision, Reason
 from cua.replay.match import url_matches
 from cua.result import (
+    BusinessOutcome,
     CuaError,
     DegradedLocator,
     EscalationRequired,
     EvidenceRefs,
     HardFailure,
+    RecoverableCondition,
     RecoveryRecord,
     ReplayResult,
     Status,
@@ -54,6 +59,8 @@ class ReplayLimits:
     step_timeout_s: float = 8.0  # how long to keep looking for an element
     poll_ms: int = 100  # how often
     run_timeout_s: float = 120.0
+    slow_threshold_ms: int = 1000  # waiting at least this long is worth reporting
+    max_backoff_ms: int = 10_000
 
 
 @dataclass
@@ -67,6 +74,8 @@ class _Ctx:
     degraded: list[DegradedLocator] = field(default_factory=list)
     recoveries: list[RecoveryRecord] = field(default_factory=list)
     declared: list[tuple[str, str]] = field(default_factory=list)  # (kind, message) of this step
+    attempts: dict[tuple[str, str], int] = field(default_factory=dict)  # (rule, step) -> tries
+    escalations: int = 0
 
 
 def _describe_schema_error(error: jsonschema.ValidationError, schema: Mapping[str, Any]) -> str:
@@ -224,10 +233,13 @@ class ReplayEngine:
         self._install_dialog_policy(ctx, step)
         strategy: str | None = None
         if step.action is ActionKind.NAVIGATE:
+            acting = self._clock()
             self._act(ctx, step, Action.navigate(self._url(ctx, step)))
+            if (self._clock() - acting) * 1000 >= self._limits.slow_threshold_ms:
+                self._record_slow(ctx, step.id, 1)
         elif step.action is ActionKind.WAIT_FOR:
             assert step.expect is not None
-            self._await(ctx, step.id, step.expect, "expectation_failed")
+            self._await(ctx, step.id, step.expect, "expectation_failed", report_slow=False)
         elif step.action is ActionKind.EXTRACT:
             found = self._locate(ctx, step)
             strategy = found.strategy_kind
@@ -236,7 +248,12 @@ class ReplayEngine:
             ctx.outputs[step.output] = self._surface.read_text(found.ref)
         else:
             target = self._locate(ctx, step) if step.locator else None
+            acting = self._clock()
             self._act(ctx, step, self._action_for(ctx, step, target))
+            # the browser may absorb a slow page while an action settles: no element was
+            # "missing", so the action's own duration is what shows it
+            if (self._clock() - acting) * 1000 >= self._limits.slow_threshold_ms:
+                self._record_slow(ctx, step.id, 1)
             strategy = target.strategy_kind if target else None
         if step.expect is not None and step.action is not ActionKind.WAIT_FOR:
             self._await(ctx, step.id, step.expect, "expectation_failed")
@@ -349,9 +366,11 @@ class ReplayEngine:
     # --- finding elements ----------------------------------------------------------------------
 
     def _locate(self, ctx: _Ctx, step: Step) -> Resolved:
-        """Walk the ranked bundle, waiting for the page rather than sleeping."""
+        """Walk the ranked bundle, waiting for the page rather than sleeping, and recognising
+        what the application is telling us while the element is missing."""
         assert step.locator is not None
         deadline = self._clock() + self._limits.step_timeout_s
+        misses, first_miss, last = 0, 0.0, ""
         while True:
             try:
                 resolved = self._surface.resolve(step.locator, ctx.values)
@@ -366,6 +385,7 @@ class ReplayEngine:
                     observed=str(exc),
                 ) from exc
             else:
+                self._note_slow(ctx, step.id, misses, first_miss)
                 if resolved.strategy_index > 0:
                     ctx.degraded.append(
                         DegradedLocator(
@@ -375,11 +395,17 @@ class ReplayEngine:
                         )
                     )
                 return resolved
+            if misses == 0:
+                first_miss = self._clock()
+            misses += 1
+            wanted = f"element {step.locator.description}"
+            if self._diagnose(ctx, step.id, wanted):
+                continue  # a known condition was dealt with: look again straight away
             if self._clock() >= deadline:
                 raise self._fail(
                     step.id,
                     "locator_not_found",
-                    expected=f"element {step.locator.description}",
+                    expected=wanted,
                     observed=f"no strategy matched ({last})",
                 )
             self._surface.pause(self._limits.poll_ms)
@@ -416,15 +442,140 @@ class ReplayEngine:
                 unmet.append(f"element {expect.element.description}")
         return unmet
 
-    def _await(self, ctx: _Ctx, step_id: str, expect: Expectation, code: str) -> None:
+    def _await(
+        self,
+        ctx: _Ctx,
+        step_id: str,
+        expect: Expectation,
+        code: str,
+        *,
+        report_slow: bool = True,
+    ) -> None:
         deadline = self._clock() + expect.timeout_ms / 1000
+        misses, first_miss = 0, 0.0
         while True:
             unmet = self._unmet(ctx, expect)
             if not unmet:
+                if report_slow:  # a wait_for is the capability asking to wait: not a surprise
+                    self._note_slow(ctx, step_id, misses, first_miss)
                 return
+            if misses == 0:
+                first_miss = self._clock()
+            misses += 1
+            wanted = " and ".join(unmet)
+            if self._diagnose(ctx, step_id, wanted):
+                continue
             if self._clock() >= deadline:
-                raise self._fail(step_id, code, expected=" and ".join(unmet), observed=self._seen())
+                raise self._fail(step_id, code, expected=wanted, observed=self._seen())
             self._surface.pause(self._limits.poll_ms)
+
+    # --- runtime conditions ---------------------------------------------------------------------
+
+    def _note_slow(self, ctx: _Ctx, step_id: str, misses: int, first_miss: float) -> None:
+        """A page that made us wait is reported, not failed: transient slowness is expected."""
+        if misses == 0:
+            return
+        waited_ms = (self._clock() - first_miss) * 1000
+        if waited_ms >= self._limits.slow_threshold_ms:
+            self._record_slow(ctx, step_id, misses)
+
+    def _record_slow(self, ctx: _Ctx, step_id: str, attempts: int) -> None:
+        if any(r.rule_id == "slow_response" and r.step_id == step_id for r in ctx.recoveries):
+            return  # once per step is enough
+        ctx.recoveries.append(
+            RecoveryRecord(
+                rule_id="slow_response", step_id=step_id, kind="wait_retry", attempts=attempts
+            )
+        )
+
+    def _detected(self, ctx: _Ctx, detector: Detector) -> bool:
+        """Any one signal is enough (dialog signals are not evaluated: see the report)."""
+        for text in detector.text_present:
+            if self._surface.wait_for_text(fill_placeholders(text, ctx.values), timeout_ms=0):
+                return True
+        if detector.url_pattern and url_matches(
+            fill_placeholders(detector.url_pattern, ctx.values), self._surface.current_url()
+        ):
+            return True
+        if detector.element is not None:
+            try:
+                self._surface.resolve(detector.element, ctx.values)
+            except LocatorNotFound:
+                return False
+            return True
+        return False
+
+    def _diagnose(self, ctx: _Ctx, step_id: str, wanted: str) -> bool:
+        """What is the application telling us? True means a recovery ran and the caller should
+        look again; a business outcome, a hard failure or an escalation is raised."""
+        rule = next((r for r in ctx.capability.error_map if self._detected(ctx, r.detect)), None)
+        if rule is None:
+            return False
+        self._log.emit("condition", step=step_id, reason=rule.id, outcome=rule.classification.value)
+        if rule.classification is ErrorClass.BUSINESS_OUTCOME:
+            assert rule.outcome_code is not None
+            raise BusinessOutcome(rule.outcome_code, message=rule.message)
+        if rule.classification is ErrorClass.HARD_FAILURE:
+            assert rule.code is not None
+            if rule.escalate:
+                ctx.escalations += 1
+                raise EscalationRequired(
+                    rule.code,
+                    request_id=f"ir_{self._run_id}_{ctx.escalations}",
+                    step_id=step_id,
+                )
+            raise self._fail(
+                step_id,
+                rule.code,
+                expected=wanted,
+                observed=f"condition '{rule.id}' detected: {self._seen()}",
+                message=rule.message,
+            )
+        self._recover(ctx, step_id, rule)
+        return True
+
+    def _recover(self, ctx: _Ctx, step_id: str, rule: ErrorRule) -> None:
+        """One bounded attempt to clear a known condition. Budgets are per rule and per step."""
+        recovery = rule.recovery
+        assert recovery is not None
+        key = (rule.id, step_id)
+        tried = ctx.attempts.get(key, 0)
+        if tried >= recovery.max_attempts:
+            raise RecoverableCondition(rule.id, step_id=step_id, kind=recovery.kind)
+        ctx.attempts[key] = tried + 1
+        if recovery.kind == "dismiss":
+            assert recovery.locator is not None
+            try:
+                target = self._surface.resolve(recovery.locator, ctx.values)
+            except LocatorNotFound as exc:
+                raise RecoverableCondition(rule.id, step_id=step_id, kind=recovery.kind) from exc
+            action = (
+                Action.click(target.ref)
+                if target.ref is not None
+                else Action.click_at(*(target.coordinates or (0.0, 0.0)))
+            )
+            gated = self._gateway.act(action, step=step_id)
+            if not gated.executed:
+                raise RecoverableCondition(rule.id, step_id=step_id, kind=recovery.kind)
+        else:
+            backoff = min(recovery.backoff_ms * 2**tried, self._limits.max_backoff_ms)
+            self._surface.pause(backoff)
+        self._log.emit("recovery", step=step_id, reason=rule.id, outcome=recovery.kind)
+        self._record_recovery(ctx, rule.id, step_id, recovery.kind)
+
+    def _record_recovery(self, ctx: _Ctx, rule_id: str, step_id: str, kind: str) -> None:
+        for index, record in enumerate(ctx.recoveries):
+            if (record.rule_id, record.step_id, record.kind) == (rule_id, step_id, kind):
+                ctx.recoveries[index] = record.model_copy(update={"attempts": record.attempts + 1})
+                return
+        ctx.recoveries.append(
+            RecoveryRecord(
+                rule_id=rule_id,
+                step_id=step_id,
+                kind="dismiss" if kind == "dismiss" else "wait_retry",
+                attempts=1,
+            )
+        )
 
     # --- failures and evidence -----------------------------------------------------------------
 
@@ -436,17 +587,28 @@ class ReplayEngine:
             return "the page could not be read"
         return " | ".join(f.text for f in frames if f.text)[:_SEEN_LIMIT] or "an empty page"
 
-    def _fail(self, step_id: str, code: str, *, expected: str, observed: str) -> HardFailure:
+    def _fail(
+        self,
+        step_id: str,
+        code: str,
+        *,
+        expected: str,
+        observed: str,
+        message: str | None = None,
+    ) -> HardFailure:
         return HardFailure(
             code,
             step_id=step_id,
             expected=self._redact(expected),
             observed=self._redact(observed) or "nothing",
+            message=message,
         )
 
     def _capture_evidence(self, exc: CuaError) -> EvidenceRefs:
         """A screenshot and a redacted page snapshot, for anything a person may have to debug."""
-        if self._evidence_dir is None or not isinstance(exc, HardFailure | EscalationRequired):
+        if self._evidence_dir is None or not isinstance(
+            exc, HardFailure | EscalationRequired | RecoverableCondition
+        ):
             return EvidenceRefs()
         folder = self._evidence_dir / self._run_id
         try:

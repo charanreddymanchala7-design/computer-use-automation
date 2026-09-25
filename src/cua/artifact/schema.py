@@ -284,6 +284,11 @@ class ErrorRule(_Model):
     outcome_code: str | None = Field(default=None, pattern=_CODE)
     recovery: Recovery | None = None
     code: str | None = Field(default=None, pattern=_CODE)
+    escalate: bool = Field(
+        default=False,
+        description="Hard failures only: bring a human in (for example an expired session, "
+        "which needs credentials that are never stored) instead of just stopping",
+    )
 
     @model_validator(mode="after")
     def _fields_match_classification(self) -> Self:
@@ -294,6 +299,8 @@ class ErrorRule(_Model):
         for name in forbidden:
             if getattr(self, name) is not None:
                 raise ValueError(f"{cls} must not set {name}")
+        if self.escalate and self.classification is not ErrorClass.HARD_FAILURE:
+            raise ValueError("only a hard_failure can escalate")
         return self
 
 
