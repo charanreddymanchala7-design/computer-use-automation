@@ -301,7 +301,10 @@ class DiscoveryLoop:
             goal=task.goal,
             start_url=task.start_url,
             model=self._llm.model,
-            params=dict(run.values),
+            params={
+                name: "<withheld>" if spec.sensitive else spec.value
+                for name, spec in task.params.items()
+            },
             secrets_used=run.secrets_used,
             steps=run.steps,
             outputs=run.outputs,

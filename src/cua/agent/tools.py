@@ -13,13 +13,19 @@ ACT_KINDS = ("navigate", "click", "fill", "select", "press", "wait", "wait_for")
 
 @dataclass(frozen=True)
 class ParamSpec:
+    """A caller-supplied input. `value` is the example used while discovering; a sensitive one
+    is typed by the harness but never shown to the model or kept in the recorded run."""
+
     value: str
     description: str
+    pattern: str | None = None  # a regular expression the value must match, for the input schema
+    sensitive: bool = False
 
 
 @dataclass(frozen=True)
 class OutputSpec:
     description: str
+    sensitive: bool = False
 
 
 @dataclass(frozen=True)

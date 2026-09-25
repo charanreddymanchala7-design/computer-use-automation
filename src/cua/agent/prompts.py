@@ -38,7 +38,8 @@ def first_message(task: DiscoveryTask) -> str:
     if task.params:
         lines.append("Parameters (supplied by the caller; use them with `param`):")
         lines += [
-            f"- {name} = {spec.value}  ({spec.description})" for name, spec in task.params.items()
+            f"- {name} = {'<withheld>' if spec.sensitive else spec.value}  ({spec.description})"
+            for name, spec in task.params.items()
         ]
         lines.append("")
     if task.secrets:

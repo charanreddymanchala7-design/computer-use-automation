@@ -421,6 +421,43 @@
       "title": "Expectation",
       "type": "object"
     },
+    "ExpectedDialog": {
+      "additionalProperties": false,
+      "description": "A native dialog a step is known to provoke, and what to do with it.\n\nDeclared so replay can accept the confirm the app always raises, and can treat any dialog\nthat is *not* declared as unexpected (something to stop for, never to click through).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "alert",
+            "confirm",
+            "prompt",
+            "beforeunload"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "message": {
+          "description": "Exact text; `{input}` placeholders allowed",
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "action": {
+          "default": "accept",
+          "enum": [
+            "accept",
+            "dismiss"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "title": "ExpectedDialog",
+      "type": "object"
+    },
     "FrameSelector": {
       "additionalProperties": false,
       "description": "One hop into a frame. Legacy framesets often have no names, so index and URL work too.",
@@ -892,6 +929,13 @@
             }
           ],
           "default": null
+        },
+        "dialogs": {
+          "items": {
+            "$ref": "#/$defs/ExpectedDialog"
+          },
+          "title": "Dialogs",
+          "type": "array"
         }
       },
       "required": [
