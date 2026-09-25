@@ -16,6 +16,7 @@ the first that finds exactly one element wins, and an ambiguous strategy is skip
 from __future__ import annotations
 
 import fnmatch
+import re
 from collections.abc import Iterator, Mapping, Sequence
 from urllib.parse import urlsplit
 
@@ -299,8 +300,15 @@ def _is_the_element(
     return bool(found.evaluate(_SAME_ELEMENT_JS, [target, inside_ok]))
 
 
-def _describe(info: ElementInfo) -> str:
+def _describe(info: ElementInfo, params: Mapping[str, str] | None = None) -> str:
+    """A label for a person reviewing the artifact. An element found by what the caller supplied
+    (a result row) is data-dependent: the rest of its text belongs to whichever record it was
+    when discovered, so only the placeholder is kept."""
     label = info.text or info.label_hint or info.attrs.get("name", "")
+    generic = parameterize(label, params or {})
+    if generic != label:
+        names = " ".join(re.findall(r"\{[A-Za-z_][A-Za-z0-9_]*\}", generic))
+        return f"{info.tag} containing {names}"
     return f"{info.tag} {label[:50]!r}".strip()
 
 
@@ -340,7 +348,7 @@ def harvest_element(
     if not kept:
         raise HarvestError(f"no reliable locator for {_describe(info)}: try a different element")
     return LocatorBundle(
-        description=_describe(info), frame_path=frame_path_of(frame), strategies=kept
+        description=_describe(info, params), frame_path=frame_path_of(frame), strategies=kept
     )
 
 
