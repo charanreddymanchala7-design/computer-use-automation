@@ -42,6 +42,11 @@ class EventLog:
         self._redactor = redactor
         self._clock = clock
 
+    @property
+    def redactor(self) -> Redactor:
+        """So callers that put text in a result redact it exactly as the log does."""
+        return self._redactor
+
     def emit(
         self,
         event: str,

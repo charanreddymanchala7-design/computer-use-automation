@@ -97,6 +97,7 @@ class PlaywrightSurface:
         self._dialog_log: list[DialogEvent] = []
         self._act_dialogs: list[DialogEvent] | None = None
         self._route_handler: Callable[[Route], None] | None = None
+        self._dialog_policy: Callable[[str, str], bool] | None = None
 
     # --- lifecycle ----------------------------------------------------------------------------
 
@@ -231,10 +232,23 @@ class PlaywrightSurface:
         self._route_handler = handler
         context.route("**/*", handler)
 
+    def set_dialog_policy(self, policy: Callable[[str, str], bool] | None) -> None:
+        self._dialog_policy = policy
+
+    def current_url(self) -> str:
+        return self.page.url
+
+    def pause(self, ms: int) -> None:
+        self.page.wait_for_timeout(min(max(ms, 0), MAX_WAIT_MS))
+
+    def add_secrets(self, secrets: Mapping[str, str]) -> None:
+        self._secrets.update(secrets)
+
     # --- dialogs ------------------------------------------------------------------------------
 
     def _on_dialog(self, dialog: Dialog) -> None:
-        accept = self._config.accept_dialog(dialog.type, dialog.message)
+        decide = self._dialog_policy or self._config.accept_dialog
+        accept = decide(dialog.type, dialog.message)
         event = DialogEvent(dialog.type, dialog.message, accept)
         self._dialog_log.append(event)
         if self._act_dialogs is not None:
