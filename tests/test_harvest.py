@@ -217,6 +217,25 @@ def test_a_value_shown_two_frames_deep_is_located_by_the_row_that_labels_it(
     assert surface.read_text(resolved.ref) == "$2,480.15"
 
 
+def test_a_whole_row_quoted_as_the_anchor_is_cut_back_to_its_label(
+    surface: PlaywrightSurface, mock: MockHandle
+) -> None:
+    # a real model quoted the entire row, value and account number included: the artifact must
+    # keep the label ("SHARE SAVINGS"), not one member's account number or balance
+    open_member(surface, mock)
+    bundle = surface.harvest_value(
+        "$2,480.15",
+        anchor_text="SHARE SAVINGS SYN-12345-S01 $2,480.15 Close",
+        params={"member_id": "12345"},
+    )
+    anchor = bundle.strategies[0]
+    assert isinstance(anchor, AncestorAnchorLocator)
+    assert anchor.anchor_text == "SHARE SAVINGS"
+    assert bundle.description == "value near 'SHARE SAVINGS'"
+    assert "2,480" not in bundle.model_dump_json()
+    assert "SYN-12345" not in bundle.model_dump_json()
+
+
 def test_a_value_that_is_not_on_the_page_is_an_error_the_model_can_read(
     surface: PlaywrightSurface, mock: MockHandle
 ) -> None:

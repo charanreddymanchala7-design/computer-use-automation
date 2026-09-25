@@ -144,7 +144,9 @@ def test_a_missing_secret_is_reported_by_name_and_never_by_value(
     capabilities: Path, mock: MockHandle, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("MOCK_PASS")
-    out = replay(capabilities, mock, tmp_path / "ev")
+    monkeypatch.chdir(tmp_path)  # a developer's own .env in the repo must not refill it
+    policy = Path(__file__).resolve().parent.parent / "policies" / "memberserv.json"
+    out = replay(capabilities, mock, tmp_path / "ev", "--policy", str(policy))
     assert out.exit_code == 30, out.output
     assert "missing_secret" in out.output
     assert "MOCK_PASS" in out.output

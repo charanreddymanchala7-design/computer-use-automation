@@ -352,6 +352,21 @@ def harvest_element(
     )
 
 
+def _label_of(anchor: str, value: str, params: Mapping[str, str]) -> str:
+    """The label part of a row a model quoted whole: the words before the first one that is data.
+
+    ``SHARE SAVINGS SYN-12345-S01 $2,480.15 Close`` is one member's row; what survives to the next
+    member is ``SHARE SAVINGS``. A word is data if it has a digit, is part of the value, or holds a
+    caller-supplied value. If nothing is left, the anchor is kept as it was given."""
+    supplied = [v for v in params.values() if len(v) >= _MIN_PARAM_LENGTH]
+    kept: list[str] = []
+    for word in anchor.split():
+        if any(c.isdigit() for c in word) or word in value or any(v in word for v in supplied):
+            break
+        kept.append(word)
+    return " ".join(kept) or anchor
+
+
 def harvest_value(
     frames: Sequence[Frame],
     value: str,
@@ -381,12 +396,13 @@ def harvest_value(
         )
     frame, handle = found[0]
     strategies: list[LocatorStrategy] = []
-    if anchor_text:
+    label = _label_of(anchor_text, value, params) if anchor_text else None
+    if label:
         tag = str(handle.evaluate("(el) => el.tagName.toLowerCase()"))
         nth = handle.evaluate(_NTH_IN_ROW_JS)
         if nth is not None:
             anchored = AncestorAnchorLocator(
-                anchor_text=parameterize(anchor_text, params),
+                anchor_text=parameterize(label, params),
                 container="row",
                 target_tag=tag,
                 nth=nth,
@@ -402,7 +418,7 @@ def harvest_value(
     if not strategies:
         raise HarvestError(f"could not build a reliable locator for {value!r}")
     return LocatorBundle(
-        description=f"value near {anchor_text!r}" if anchor_text else "value",
+        description=f"value near {label!r}" if label else "value",
         frame_path=frame_path_of(frame),
         strategies=strategies,
     )
