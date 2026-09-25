@@ -9,9 +9,11 @@ and accept the same ``Action`` vocabulary, targeting elements by ref or by scree
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Literal, Protocol, Self
+
+from cua.artifact import LocatorBundle
 
 # --- errors -----------------------------------------------------------------------------------
 
@@ -30,6 +32,30 @@ class UnknownRefError(SurfaceError):
 
 class StaleRefError(SurfaceError):
     """The ref existed but its element is gone (the page changed); observe again."""
+
+
+class HarvestError(SurfaceError):
+    """No reliable locator could be built; the message says what to change."""
+
+
+@dataclass(frozen=True)
+class LocatorAttempt:
+    """One strategy tried while resolving a bundle: matched, no_match or ambiguous."""
+
+    kind: str
+    outcome: str
+
+
+class LocatorNotFound(SurfaceError):
+    """No strategy in the bundle found exactly one element."""
+
+    def __init__(
+        self, description: str, attempts: tuple[LocatorAttempt, ...], why: str = ""
+    ) -> None:
+        tried = ", ".join(f"{a.kind}: {a.outcome}" for a in attempts) or "none tried"
+        super().__init__(f"could not find {description!r} ({why or tried})")
+        self.description = description
+        self.attempts = attempts
 
 
 class UnknownSecretError(SurfaceError):
@@ -191,6 +217,22 @@ class ActionResult:
     error: str | None = None
 
 
+@dataclass(frozen=True)
+class Resolved:
+    """A locator bundle resolved on the live page.
+
+    ``ref`` names the element like an observed one (so it can be acted on and risk-classified);
+    it is None when the winning strategy was a screen coordinate.
+    """
+
+    ref: str | None
+    info: ElementInfo | None
+    strategy_index: int
+    strategy_kind: str
+    attempts: tuple[LocatorAttempt, ...]
+    coordinates: tuple[float, float] | None = None
+
+
 class Surface(Protocol):
     """What the agent loop and replay engine need from any application surface."""
 
@@ -211,3 +253,27 @@ class Surface(Protocol):
     def reset(self) -> None: ...
 
     def close(self) -> None: ...
+
+
+class LocatingSurface(Surface, Protocol):
+    """A surface that can turn what it sees into locators, and locators back into elements."""
+
+    def harvest(
+        self, ref: str, *, params: Mapping[str, str] | None = None, for_click: bool = False
+    ) -> LocatorBundle:
+        """A ranked bundle for an observed element; every strategy was verified to find it."""
+        ...
+
+    def harvest_value(
+        self, value: str, *, anchor_text: str | None = None, params: Mapping[str, str] | None = None
+    ) -> LocatorBundle:
+        """A bundle for text shown on the page, located through the row that labels it."""
+        ...
+
+    def resolve(self, bundle: LocatorBundle, values: Mapping[str, str] | None = None) -> Resolved:
+        """The element a bundle finds now: strategies in order, the first unique match wins."""
+        ...
+
+    def read_text(self, ref: str) -> str:
+        """The text (or value, for a field) of a ref, with secrets masked."""
+        ...
