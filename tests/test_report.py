@@ -147,7 +147,7 @@ def test_progress_is_read_from_the_runs_own_log(capability_dict: dict[str, Any])
     assert lines[3].startswith("[!!] s3 stuck (session_expired)")
     assert "ops" in lines[4]
     assert lines[5].startswith("[ok] control handed back")
-    assert lines[6].startswith("[xx] s3 the person did not finish")
+    assert lines[6] == "[xx] the person did not finish the handoff: timed out"
     assert lines[7].startswith("[xx] s4 blocked by policy")
     assert len(lines) == 8
 

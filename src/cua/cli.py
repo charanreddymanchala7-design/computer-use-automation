@@ -171,6 +171,9 @@ def replay(
     operator: Annotated[
         str, typer.Option(help=f"Who is asked when the run is stuck: {', '.join(OPERATORS)}")
     ] = "none",
+    operator_port: Annotated[
+        int, typer.Option(help="Port for the operator web page (0 picks a free one)")
+    ] = 0,
     wait_for_human: Annotated[
         float, typer.Option(help="Seconds to wait for a person before giving up")
     ] = 900.0,
@@ -212,6 +215,7 @@ def replay(
         headed=headed,
         debug_port=debug_port,
         operator=operator,
+        operator_port=operator_port,
         claim_timeout_s=wait_for_human,
         announce=announce,
     )
@@ -368,6 +372,7 @@ def catalog_call(
     headed: Annotated[bool, typer.Option(help="Show the browser window")] = False,
     debug_port: Annotated[int | None, typer.Option(help="Loopback debug port")] = None,
     operator: Annotated[str, typer.Option(help=f"One of {', '.join(OPERATORS)}")] = "none",
+    operator_port: Annotated[int, typer.Option(help="Port for the operator web page")] = 0,
     wait_for_human: Annotated[float, typer.Option(help="Seconds to wait for a person")] = 900.0,
 ) -> None:
     """Call a tool the way an agent would: JSON in, an MCP-shaped reply on stdout.
@@ -400,6 +405,7 @@ def catalog_call(
             headed=headed,
             debug_port=debug_port,
             operator=operator,
+            operator_port=operator_port,
             claim_timeout_s=wait_for_human,
             announce=lambda text: typer.echo(text, err=True),
         )

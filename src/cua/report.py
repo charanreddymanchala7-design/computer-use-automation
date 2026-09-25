@@ -63,7 +63,8 @@ def progress_lines(
         elif name == "control_resumed":
             add("ok", "control handed back; the page was re-checked and the run continues")
         elif name in ("intervention_aborted", "intervention_timed_out"):
-            add("fail", f"{step or 'the run'} the person did not finish: {name.split('_', 1)[1]}")
+            how = "aborted" if name == "intervention_aborted" else "timed out"
+            add("fail", f"the person did not finish the handoff: {how}")
         elif name == "action_blocked":
             add("fail", f"{step} blocked by policy ({event.get('reason')})")
     return lines

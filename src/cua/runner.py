@@ -56,7 +56,11 @@ class ReplayRun:
 
 
 def _operators(
-    kind: str, lease: ControlLease, evidence_root: Path, announce: Callable[[str], None]
+    kind: str,
+    lease: ControlLease,
+    evidence_root: Path,
+    announce: Callable[[str], None],
+    port: int,
 ) -> tuple[Operator | None, OperatorServer | None]:
     if kind == "none":
         return None, None
@@ -65,7 +69,7 @@ def _operators(
     if kind in ("terminal", "both"):
         channels.append(TerminalOperator(lease))
     if kind in ("web", "both"):
-        web = OperatorServer(lease, evidence_dir=evidence_root)
+        web = OperatorServer(lease, evidence_dir=evidence_root, port=port)
         web.start()
         channels.append(web)
         announce(f"operator page: {web.url}")
@@ -83,6 +87,7 @@ def replay_capability(
     headed: bool = False,
     debug_port: int | None = None,
     operator: str = "none",
+    operator_port: int = 0,
     claim_timeout_s: float = 900.0,
     announce: Callable[[str], None] = lambda _: None,
 ) -> ReplayRun:
@@ -99,7 +104,7 @@ def replay_capability(
         surface.open()
         lease = ControlLease()
         gateway = ActionGateway(surface, policy, log, lease=lease if operator != "none" else None)
-        channels, web = _operators(operator, lease, evidence_root, announce)
+        channels, web = _operators(operator, lease, evidence_root, announce, operator_port)
         handoff = (
             Handoff(lease, gateway, surface, log, channels, claim_timeout_s=claim_timeout_s)
             if channels is not None
