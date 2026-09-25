@@ -86,7 +86,7 @@ class _Ctx:
     interventions: list[InterventionRecord] = field(default_factory=list)
 
 
-def _describe_schema_error(error: jsonschema.ValidationError, schema: Mapping[str, Any]) -> str:
+def describe_schema_error(error: jsonschema.ValidationError, schema: Mapping[str, Any]) -> str:
     """What was wrong, by name and rule, never by value (values may be sensitive)."""
     instance = error.instance if isinstance(error.instance, dict) else {}
     if error.validator == "required":
@@ -99,7 +99,9 @@ def _describe_schema_error(error: jsonschema.ValidationError, schema: Mapping[st
     return f"{path}: failed {error.validator}"
 
 
-def _first_error(schema: Mapping[str, Any], instance: object) -> jsonschema.ValidationError | None:
+def first_schema_error(
+    schema: Mapping[str, Any], instance: object
+) -> jsonschema.ValidationError | None:
     errors = sorted(
         jsonschema.Draft202012Validator(dict(schema)).iter_errors(instance),
         key=lambda e: [str(p) for p in e.absolute_path],
@@ -210,13 +212,13 @@ class ReplayEngine:
     # --- before the app is touched -------------------------------------------------------------
 
     def _validate_inputs(self, ctx: _Ctx) -> None:
-        error = _first_error(ctx.capability.inputs, ctx.inputs)
+        error = first_schema_error(ctx.capability.inputs, ctx.inputs)
         if error is not None:
             raise HardFailure(
                 "invalid_input",
                 step_id="inputs",
                 expected="inputs that satisfy the capability's input schema",
-                observed=_describe_schema_error(error, ctx.capability.inputs),
+                observed=describe_schema_error(error, ctx.capability.inputs),
             )
 
     def _prepare_secrets(self, ctx: _Ctx) -> None:
@@ -233,13 +235,13 @@ class ReplayEngine:
         self._surface.add_secrets({**self._secrets, **typed_under})
 
     def _validated_outputs(self, ctx: _Ctx) -> dict[str, Any]:
-        error = _first_error(ctx.capability.outputs, ctx.outputs)
+        error = first_schema_error(ctx.capability.outputs, ctx.outputs)
         if error is not None:
             raise HardFailure(
                 "output_invalid",
                 step_id="outputs",
                 expected="outputs that satisfy the capability's output schema",
-                observed=_describe_schema_error(error, ctx.capability.outputs),
+                observed=describe_schema_error(error, ctx.capability.outputs),
             )
         return dict(ctx.outputs)
 

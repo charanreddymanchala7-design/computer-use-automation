@@ -11,6 +11,7 @@ Secrets come from the environment or a gitignored ``.env``, never from a flag.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import time
@@ -23,9 +24,10 @@ from pydantic import ValidationError
 
 from cua import __version__
 from cua.agent import Limits
-from cua.artifact import Capability
+from cua.artifact import Capability, RiskClass
 from cua.artifact.render import render_review
-from cua.artifact.store import load_capability
+from cua.artifact.store import list_capabilities, load_capability
+from cua.catalog import ToolError, build_catalog, call_tool, tool_definition
 from cua.config import load_dotenv, use_color
 from cua.demo.memberserv import TASKS
 from cua.evlog import EventLog
@@ -286,6 +288,130 @@ def run(
         typer.echo(mark_up("warn", warning, color=color))
     typer.echo(mark_up("info", f"capability saved: {found.capability_path}", color=color))
     typer.echo(mark_up("info", f"evidence: {folder}", color=color))
+
+
+# --- the agent-facing catalog -------------------------------------------------------------------
+
+catalog_app = typer.Typer(
+    no_args_is_help=True,
+    help="Capabilities as tools an AI agent can list, inspect and call (MCP-style definitions).",
+)
+app.add_typer(catalog_app, name="capabilities")
+
+CapabilityDir = Annotated[Path, typer.Option("--dir", help="Where the capabilities are saved")]
+
+
+def _kind(capability: Capability) -> str:
+    risks = {step.risk_class for step in capability.steps}
+    if RiskClass.IRREVERSIBLE_WRITE in risks:
+        return "irreversible"
+    return "writes" if RiskClass.REVERSIBLE_WRITE in risks else "read-only"
+
+
+@catalog_app.command("list")
+def catalog_list(directory: CapabilityDir = Path("capabilities")) -> None:
+    """List the tools an agent can call, and whether each only reads or changes state."""
+    found = list_capabilities(directory)
+    if not found:
+        typer.echo(f"no capabilities in {directory}")
+        return
+    for c in found:
+        names = ", ".join(c.inputs.get("properties", {})) or "no inputs"
+        typer.echo(f"{c.id:<20} {c.capability_version:<7} {_kind(c):<13} inputs: {names}")
+
+
+@catalog_app.command("schema")
+def catalog_schema(
+    name: Annotated[str, typer.Argument(help="The capability id")],
+    directory: CapabilityDir = Path("capabilities"),
+) -> None:
+    """Print one tool's definition: name, description, input and output schema, annotations."""
+    found = {c.id: c for c in list_capabilities(directory)}
+    if name not in found:
+        raise typer.BadParameter(
+            f"unknown tool {name!r}; available: {', '.join(sorted(found)) or 'none'}"
+        )
+    typer.echo(json.dumps(tool_definition(found[name]), indent=2))
+
+
+@catalog_app.command("export")
+def catalog_export(
+    directory: CapabilityDir = Path("capabilities"),
+    out: Annotated[Path, typer.Option(help="The catalog file to write")] = Path(
+        "capabilities/catalog.json"
+    ),
+    check: Annotated[
+        bool, typer.Option("--check", help="Write nothing; exit 1 if the file is out of date")
+    ] = False,
+) -> None:
+    """Write capabilities/catalog.json from the saved capabilities."""
+    text = json.dumps(build_catalog(list_capabilities(directory)), indent=2) + "\n"
+    if check:
+        if not out.is_file() or out.read_text(encoding="utf-8") != text:
+            typer.echo(f"{out} is out of date: run `cua capabilities export`", err=True)
+            raise typer.Exit(1)
+        typer.echo(f"{out} is current")
+        return
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    typer.echo(f"wrote {out}")
+
+
+@catalog_app.command("call")
+def catalog_call(
+    name: Annotated[str, typer.Argument(help="The capability id")],
+    args: Annotated[str, typer.Option(help="Arguments as a JSON object")] = "{}",
+    directory: CapabilityDir = Path("capabilities"),
+    target: Annotated[str, typer.Option(help="Base URL of the application")] = DEFAULT_TARGET,
+    policy: Annotated[Path, typer.Option(help="Allowlist and guardrails (JSON)")] = DEFAULT_POLICY,
+    evidence: Annotated[Path | None, typer.Option(help="Where to keep the evidence")] = None,
+    headed: Annotated[bool, typer.Option(help="Show the browser window")] = False,
+    debug_port: Annotated[int | None, typer.Option(help="Loopback debug port")] = None,
+    operator: Annotated[str, typer.Option(help=f"One of {', '.join(OPERATORS)}")] = "none",
+    wait_for_human: Annotated[float, typer.Option(help="Seconds to wait for a person")] = 900.0,
+) -> None:
+    """Call a tool the way an agent would: JSON in, an MCP-shaped reply on stdout.
+
+    Exit code: 0 completed, 10 business outcome, 20 escalated, 30 hard failure, 2 bad call."""
+    load_dotenv(Path(".env"))
+    if operator not in OPERATORS:
+        raise typer.BadParameter(
+            f"{operator!r}: choose one of {', '.join(OPERATORS)}", param_hint="--operator"
+        )
+    try:
+        arguments = json.loads(args)
+    except ValueError:
+        raise typer.BadParameter("--args must be a JSON object", param_hint="--args") from None
+    if not isinstance(arguments, dict):
+        raise typer.BadParameter("--args must be a JSON object", param_hint="--args")
+    guard = _policy(policy)
+    exit_code = 0
+
+    def run(capability: Capability, given: dict[str, Any]) -> Any:
+        nonlocal exit_code
+        folder = evidence or Path("runs") / f"call-{capability.id}-{_stamp()}"
+        ran = replay_capability(
+            capability,
+            given,
+            base_url=target,
+            policy=guard,
+            evidence_dir=folder,
+            secrets=_secrets(capability.required_secrets()),
+            headed=headed,
+            debug_port=debug_port,
+            operator=operator,
+            claim_timeout_s=wait_for_human,
+            announce=lambda text: typer.echo(text, err=True),
+        )
+        exit_code = ran.result.exit_code
+        return ran.result
+
+    try:
+        reply = call_tool(list_capabilities(directory), name, arguments, run)
+    except ToolError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps(reply, indent=2))
+    raise typer.Exit(exit_code)
 
 
 def main() -> None:
