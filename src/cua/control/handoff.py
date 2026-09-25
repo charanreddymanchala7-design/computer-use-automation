@@ -24,12 +24,14 @@ from urllib.parse import urlsplit
 from cua.control.lease import ControlLease, LeaseError, Phase
 from cua.control.stuck import InterventionRequest
 from cua.evlog import EventLog
-from cua.surface import Surface, SurfaceError
+from cua.surface import Capturable, HumanAction, Surface, SurfaceError
 
 if TYPE_CHECKING:  # the gateway imports the lease, so this import must not run
     from cua.gateway import ActionGateway
 
 _OBSERVED_LIMIT = 500
+_ACTION_LIMIT = 50  # actions summarised in the result; the log keeps every one
+_FLUSH_MS = 100  # after a hand-back, let the person's last events reach us before capture stops
 
 
 class Operator(Protocol):
@@ -46,6 +48,7 @@ class HandoffResult:
     outcome: Outcome
     taken_by: str | None
     duration_ms: int
+    actions: tuple[str, ...] = ()  # what the person did, described without what they typed
 
 
 def _cancel_dialogs(kind: str, message: str) -> bool:
@@ -66,7 +69,9 @@ class Handoff:
         poll_ms: int = 250,
         claim_timeout_s: float = 900.0,
         control_timeout_s: float = 1800.0,
+        keep_screenshot: Callable[[str, bytes], None] | None = None,
     ) -> None:
+        self._keep_screenshot = keep_screenshot
         self._lease = lease
         self._gateway = gateway
         self._surface = surface
@@ -117,18 +122,26 @@ class Handoff:
         self._surface.set_dialog_policy(_cancel_dialogs)
         self._log.emit("control_taken", request_id=request.id, actor=taken_by)
 
+        recorded = self._start_recording(request)
         phase = self._wait({Phase.HANDED_BACK, Phase.ABORTED}, self._control_timeout_s)
+        self._surface.pause(_FLUSH_MS)
+        self._stop_recording()
+        actions = self._summarise(recorded)
         if phase is None:
-            return self._timed_out(request, "control was not handed back", taken_by, started)
+            return self._timed_out(
+                request, "control was not handed back", taken_by, started, actions
+            )
         if phase is Phase.ABORTED:
-            return self._aborted(request, taken_by, started)
+            return self._aborted(request, taken_by, started, actions)
 
-        self._log.emit("control_returned", request_id=request.id, actor=taken_by)
-        self._observe_what_was_left()
+        self._log.emit(
+            "control_returned", request_id=request.id, actor=taken_by, actions=len(recorded)
+        )
+        self._observe_what_was_left(request)
         self._epoch = self._lease.resume()
         self._gateway.attach(self._epoch)
         self._log.emit("control_resumed", request_id=request.id)
-        return HandoffResult("handed_back", taken_by, self._elapsed_ms(started))
+        return HandoffResult("handed_back", taken_by, self._elapsed_ms(started), actions)
 
     # --- internals -------------------------------------------------------------------------------
 
@@ -153,12 +166,14 @@ class Handoff:
         request = self._lease.state.request
         return request.taken_by if request is not None else None
 
-    def _observe_what_was_left(self) -> None:
+    def _observe_what_was_left(self, request: InterventionRequest) -> None:
         try:
             obs = self._surface.observe()
         except SurfaceError:
             self._log.emit("handback_observed", detail="the page could not be read")
             return
+        if self._keep_screenshot is not None:
+            self._keep_screenshot(f"handback-{request.id}", obs.screenshot)
         text = " | ".join(f.text for f in obs.frames if f.text)[:_OBSERVED_LIMIT]
         self._log.emit(
             "handback_observed",
@@ -167,19 +182,57 @@ class Handoff:
             dialogs=[f"{d.kind}: {d.message}" for d in obs.dialogs],
         )
 
+    def _start_recording(self, request: InterventionRequest) -> list[HumanAction]:
+        recorded: list[HumanAction] = []
+        if not isinstance(self._surface, Capturable):
+            return recorded
+
+        def sink(action: HumanAction) -> None:
+            recorded.append(action)
+            self._log.emit(
+                "human_action",
+                request_id=request.id,
+                n=len(recorded),
+                what=action.describe(),
+                frame=action.frame,
+            )
+
+        self._surface.start_capture(sink)
+        return recorded
+
+    def _stop_recording(self) -> None:
+        if isinstance(self._surface, Capturable):
+            self._surface.stop_capture()
+
+    @staticmethod
+    def _summarise(recorded: list[HumanAction]) -> tuple[str, ...]:
+        lines = [action.describe() for action in recorded[:_ACTION_LIMIT]]
+        if len(recorded) > _ACTION_LIMIT:
+            lines.append(f"(+{len(recorded) - _ACTION_LIMIT} more, see the log)")
+        return tuple(lines)
+
     def _timed_out(
-        self, request: InterventionRequest, detail: str, taken_by: str | None, started: float
+        self,
+        request: InterventionRequest,
+        detail: str,
+        taken_by: str | None,
+        started: float,
+        actions: tuple[str, ...] = (),
     ) -> HandoffResult:
         with contextlib.suppress(LeaseError):
             self._lease.abort(request.id, who="system")
         self._log.emit("intervention_timed_out", request_id=request.id, detail=detail)
-        return HandoffResult("timed_out", taken_by, self._elapsed_ms(started))
+        return HandoffResult("timed_out", taken_by, self._elapsed_ms(started), actions)
 
     def _aborted(
-        self, request: InterventionRequest, taken_by: str | None, started: float
+        self,
+        request: InterventionRequest,
+        taken_by: str | None,
+        started: float,
+        actions: tuple[str, ...] = (),
     ) -> HandoffResult:
         self._log.emit("intervention_aborted", request_id=request.id, actor=taken_by)
-        return HandoffResult("aborted", taken_by, self._elapsed_ms(started))
+        return HandoffResult("aborted", taken_by, self._elapsed_ms(started), actions)
 
     def _elapsed_ms(self, started: float) -> int:
         return max(0, int((self._clock() - started) * 1000))

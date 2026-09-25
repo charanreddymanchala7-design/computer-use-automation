@@ -20,6 +20,7 @@ from cua.surface import (
     DialogEvent,
     ElementInfo,
     HarvestError,
+    HumanAction,
     LocatorAttempt,
     LocatorNotFound,
     Observation,
@@ -58,6 +59,7 @@ class FakeReplaySurface:
         self.on_click: dict[str, Callable[[FakeReplaySurface], None]] = {}  # by bundle description
         self.pauses: list[int] = []
         self.on_pause: Callable[[FakeReplaySurface], None] | None = None  # a "human" acting
+        self.capture_sink: Callable[[HumanAction], None] | None = None
         self.secrets: dict[str, str] = {}
         self.policy: Callable[[str, str], bool] | None = None
         self.resolved_values: list[dict[str, str]] = []
@@ -113,6 +115,12 @@ class FakeReplaySurface:
 
     def set_request_guard(self, guard: Callable[[RequestInfo], bool] | None) -> None:
         self.guard = guard
+
+    def start_capture(self, sink: Callable[[HumanAction], None]) -> None:
+        self.capture_sink = sink
+
+    def stop_capture(self) -> None:
+        self.capture_sink = None
 
     def reset(self) -> None:
         return None

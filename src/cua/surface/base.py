@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, Protocol, Self
+from typing import Literal, Protocol, Self, runtime_checkable
 
 from cua.artifact import LocatorBundle
 
@@ -269,6 +269,36 @@ class Surface(Protocol):
     def reset(self) -> None: ...
 
     def close(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class HumanAction:
+    """One thing a person did in the live session, described without what they typed."""
+
+    kind: Literal["click", "typed", "selected", "toggled", "pressed", "navigated"]
+    target: str = ""
+    frame: str = ""
+    chars: int | None = None  # how much was typed; never the text itself
+
+    def describe(self) -> str:
+        if self.kind == "typed":
+            if self.chars is None:
+                return f"typed into a {self.target}"
+            return f"typed {self.chars} characters into {self.target}"
+        if self.kind == "selected":
+            return f"chose an option in {self.target}"
+        if self.kind == "navigated":
+            return f"navigated to {self.target}"
+        return f"{self.kind} {self.target}".strip()
+
+
+@runtime_checkable
+class Capturable(Protocol):
+    """A surface that can report what a person does in it while they hold control."""
+
+    def start_capture(self, sink: Callable[[HumanAction], None]) -> None: ...
+
+    def stop_capture(self) -> None: ...
 
 
 class LocatingSurface(Surface, Protocol):

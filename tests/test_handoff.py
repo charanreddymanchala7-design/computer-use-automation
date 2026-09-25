@@ -27,7 +27,7 @@ from cua.control import (
 from cua.evlog import EventLog, read_events
 from cua.gateway import ActionGateway
 from cua.redact import Redactor
-from cua.surface import Action
+from cua.surface import Action, HumanAction
 
 
 class RecordingOperator:
@@ -88,6 +88,7 @@ def world(
     claim_timeout_s: float = 60.0,
     control_timeout_s: float = 60.0,
     operator: Operator | None = None,
+    keep: Callable[[str, bytes], None] | None = None,
 ) -> World:
     clock = Clock()
     surface = FakeReplaySurface(clock)
@@ -105,6 +106,7 @@ def world(
         poll_ms=250,
         claim_timeout_s=claim_timeout_s,
         control_timeout_s=control_timeout_s,
+        keep_screenshot=keep,
     )
     handoff.begin()
     return World(clock, surface, log, lease, gateway, handoff, recording)
@@ -281,3 +283,106 @@ def test_ending_a_run_that_never_began_is_harmless(tmp_path: Path) -> None:
     w.handoff.end()
     w.handoff.end()
     assert w.lease.state.phase is Phase.IDLE
+
+
+# --- recording what the person did --------------------------------------------------------------
+
+
+def does(w: World, *actions: HumanAction) -> Callable[[], None]:
+    def step() -> None:
+        assert w.surface.capture_sink is not None, (
+            "capture should be on while a person is in control"
+        )
+        for action in actions:
+            w.surface.capture_sink(action)
+
+    return step
+
+
+CLICK_SEARCH = HumanAction("click", "button 'Search'", "main")
+TYPED_ID = HumanAction("typed", "text field 'Member No:'", "main", chars=5)
+
+
+def test_what_the_person_did_is_recorded_in_order_and_described_without_content(
+    tmp_path: Path,
+) -> None:
+    w = world(tmp_path)
+    w.script(w.take(), does(w, TYPED_ID, CLICK_SEARCH), w.give_back)
+    result = w.handoff.escalate(make_request())
+    assert result.actions == (
+        "typed 5 characters into text field 'Member No:'",
+        "click button 'Search'",
+    )
+    logged = w.events("human_action")
+    assert [e["what"] for e in logged] == list(result.actions)
+    assert [e["n"] for e in logged] == [1, 2]
+    assert [e["frame"] for e in logged] == ["main", "main"]
+    assert w.events("control_returned")[0]["actions"] == 2
+
+
+def test_nothing_is_recorded_before_a_person_takes_control_or_after_they_hand_back(
+    tmp_path: Path,
+) -> None:
+    w = world(tmp_path)
+    seen: list[object] = []
+    w.script(
+        lambda: seen.append(w.surface.capture_sink),  # asked, nobody in control yet
+        w.take(),
+        w.give_back,
+    )
+    w.handoff.escalate(make_request())
+    assert seen == [None]
+    assert w.surface.capture_sink is None  # and it is switched off again
+
+
+def test_the_last_action_before_handing_back_is_not_lost(tmp_path: Path) -> None:
+    w = world(tmp_path)
+    # the hand-back arrives first and the final click is only delivered on the next pump
+    w.script(w.take(), w.give_back, does(w, CLICK_SEARCH))
+    assert w.handoff.escalate(make_request()).actions == ("click button 'Search'",)
+
+
+@pytest.mark.parametrize("how", ["abort", "timeout"])
+def test_capture_is_switched_off_however_the_handoff_ends(tmp_path: Path, how: str) -> None:
+    w = world(tmp_path, control_timeout_s=5)
+    w.script(w.take(), does(w, CLICK_SEARCH), *([w.abort] if how == "abort" else []))
+    result = w.handoff.escalate(make_request())
+    assert result.outcome == ("aborted" if how == "abort" else "timed_out")
+    assert result.actions == ("click button 'Search'",)  # what was done is kept either way
+    assert w.surface.capture_sink is None
+
+
+def test_a_flood_of_actions_is_capped_and_says_so(tmp_path: Path) -> None:
+    w = world(tmp_path)
+    w.script(w.take(), does(w, *[CLICK_SEARCH] * 75), w.give_back)
+    result = w.handoff.escalate(make_request())
+    assert len(result.actions) == 51
+    assert result.actions[-1] == "(+25 more, see the log)"
+    assert len(w.events("human_action")) == 75  # the log keeps every one
+
+
+def test_a_surface_that_cannot_capture_still_hands_over(tmp_path: Path) -> None:
+    class Bare:
+        """A surface without the capture methods, as a desktop stub might be."""
+
+        def __init__(self, inner: FakeReplaySurface) -> None:
+            self._inner = inner
+
+        def __getattr__(self, name: str) -> object:
+            if name in ("start_capture", "stop_capture"):
+                raise AttributeError(name)
+            return getattr(self._inner, name)
+
+    w = world(tmp_path)
+    w.handoff._surface = Bare(w.surface)  # type: ignore[assignment]
+    w.script(w.take(), w.give_back)
+    result = w.handoff.escalate(make_request())
+    assert (result.outcome, result.actions) == ("handed_back", ())
+
+
+def test_a_screenshot_of_what_the_person_left_behind_can_be_kept(tmp_path: Path) -> None:
+    kept: list[tuple[str, bytes]] = []
+    w = world(tmp_path, keep=lambda name, png: kept.append((name, png)))
+    w.script(w.take(), w.give_back)
+    w.handoff.escalate(make_request())
+    assert [(name, png[:4]) for name, png in kept] == [("handback-ir_1", b"\x89PNG")]
