@@ -10,7 +10,7 @@ import jsonschema
 import pytest
 from pydantic import ValidationError
 
-from cua.artifact import Capability, capability_json_schema
+from cua.artifact import Capability, capability_json_schema, fill_placeholders, placeholders_in
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -245,6 +245,67 @@ def test_sensitive_inputs_cannot_appear_in_urls(capability_dict: dict[str, Any])
     step(capability_dict, "s1")["url_template"] = "http://127.0.0.1:4310/members/{member_id}"
     with pytest.raises(ValidationError, match="must not appear in a url_template"):
         load(capability_dict)
+
+
+# --- parameterized locators and expectations ---------------------------------------------------
+
+
+def test_locator_text_may_reference_declared_inputs(capability_dict: dict[str, Any]) -> None:
+    step(capability_dict, "s3")["locator"]["strategies"][1]["text"] = "Row for {member_id}"
+    step(capability_dict, "s3")["expect"] = {"text_present": ["Search results", "{member_id}"]}
+    load(capability_dict)
+
+
+@pytest.mark.parametrize(
+    "where",
+    ["locator", "expect", "checkpoint", "detector", "recovery"],
+)
+def test_placeholders_must_be_declared_inputs_wherever_they_appear(
+    capability_dict: dict[str, Any], where: str
+) -> None:
+    if where == "locator":
+        step(capability_dict, "s3")["locator"]["strategies"][1]["text"] = "{ghost}"
+    elif where == "expect":
+        step(capability_dict, "s3")["expect"] = {"text_present": ["{ghost}"]}
+    elif where == "checkpoint":
+        capability_dict["checkpoint"]["text_present"] = ["{ghost}"]
+    elif where == "detector":
+        capability_dict["error_map"][0]["detect"]["text_present"] = ["{ghost}"]
+    else:
+        strategy = capability_dict["error_map"][1]["recovery"]["locator"]["strategies"][0]
+        strategy["name"] = "{ghost}"
+    with pytest.raises(ValidationError, match="undeclared input 'ghost'"):
+        load(capability_dict)
+
+
+def test_a_sensitive_input_cannot_be_used_in_a_locator_or_expectation(
+    capability_dict: dict[str, Any],
+) -> None:
+    capability_dict["inputs"]["properties"]["member_id"]["x-sensitive"] = True
+    step(capability_dict, "s3")["expect"] = {"text_present": ["{member_id}"]}
+    with pytest.raises(ValidationError, match="must not appear in a locator or expectation"):
+        load(capability_dict)
+
+
+def test_fingerprint_attribute_values_can_be_parameterized(capability_dict: dict[str, Any]) -> None:
+    step(capability_dict, "s2")["locator"]["strategies"][1]["attributes"] = {"name": "{member_id}"}
+    load(capability_dict)
+
+
+def test_regex_quantifiers_are_not_mistaken_for_placeholders(
+    capability_dict: dict[str, Any],
+) -> None:
+    capability_dict["checkpoint"]["url_pattern"] = "^/members/[0-9]{5}$"
+    load(capability_dict)
+
+
+def test_placeholders_are_listed_and_filled_with_the_callers_values() -> None:
+    assert placeholders_in("row {member_id} of {branch}") == ["member_id", "branch"]
+    assert fill_placeholders("row {member_id}", {"member_id": "12345"}) == "row 12345"
+    assert fill_placeholders("no placeholders", {}) == "no placeholders"
+    assert fill_placeholders("^[0-9]{5}$", {}) == "^[0-9]{5}$"
+    with pytest.raises(KeyError, match="branch"):
+        fill_placeholders("row {branch}", {"member_id": "1"})
 
 
 # --- inputs, outputs and extraction -----------------------------------------------------------

@@ -30,6 +30,8 @@ from cua.artifact.schema import (
     ValueRef,
     XPathLocator,
     capability_json_schema,
+    fill_placeholders,
+    placeholders_in,
 )
 
 __all__ = [
@@ -62,4 +64,6 @@ __all__ = [
     "ValueRef",
     "XPathLocator",
     "capability_json_schema",
+    "fill_placeholders",
+    "placeholders_in",
 ]

@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
@@ -390,6 +391,41 @@ def _check_object_schema(label: str, schema: dict[str, Any]) -> None:
         raise ValueError(f"{label} must be an object schema (type: object)")
 
 
+def placeholders_in(text: str) -> list[str]:
+    """Names of the `{input}` placeholders in a string, in order."""
+    return _PLACEHOLDER.findall(text)
+
+
+def fill_placeholders(text: str, values: Mapping[str, str]) -> str:
+    """Substitute `{input}` placeholders; a missing value is a KeyError, never a silent blank."""
+
+    def substitute(match: re.Match[str]) -> str:
+        return values[match.group(1)]
+
+    return _PLACEHOLDER.sub(substitute, text)
+
+
+def _bundle_strings(bundle: LocatorBundle) -> Iterator[str]:
+    for strategy in bundle.strategies:
+        if isinstance(strategy, RoleNameLocator):
+            yield strategy.name
+        elif isinstance(strategy, LabelLocator | TextLocator):
+            yield strategy.text
+        elif isinstance(strategy, AncestorAnchorLocator):
+            yield strategy.anchor_text
+        elif isinstance(strategy, AttributeFingerprintLocator):
+            yield from strategy.attributes.values()
+
+
+def _expectation_strings(expect: Expectation) -> Iterator[str]:
+    if expect.url_pattern:
+        yield expect.url_pattern
+    yield from expect.text_present
+    yield from expect.text_absent
+    if expect.element:
+        yield from _bundle_strings(expect.element)
+
+
 class Capability(_Model):
     schema_version: Literal["1"] = SCHEMA_VERSION
     id: str = Field(pattern=_SLUG, description="Tool-name style slug, stable across versions")
@@ -440,6 +476,16 @@ class Capability(_Model):
             seen_steps.add(step.id)
             self._check_step_references(step, inputs, outputs, sensitive, produced)
 
+        for where, text in self._placeholder_sources():
+            for name in placeholders_in(text):
+                if name not in inputs:
+                    raise ValueError(f"{where} uses undeclared input '{name}'")
+                if name in sensitive:
+                    raise ValueError(
+                        f"sensitive input '{name}' must not appear in a locator or expectation "
+                        f"({where}); they are logged and stored"
+                    )
+
         missing = [r for r in self.outputs.get("required", []) if r not in produced]
         if missing:
             raise ValueError(f"required output '{missing[0]}' is never extracted")
@@ -450,6 +496,33 @@ class Capability(_Model):
                 raise ValueError(f"duplicate error rule id '{rule.id}'")
             seen_rules.add(rule.id)
         return self
+
+    def _placeholder_sources(self) -> Iterator[tuple[str, str]]:
+        """Every string a caller's input may be substituted into, with where it lives."""
+        for step in self.steps:
+            if step.locator:
+                for text in _bundle_strings(step.locator):
+                    yield f"step {step.id} locator", text
+            if step.expect:
+                for text in _expectation_strings(step.expect):
+                    yield f"step {step.id} expect", text
+        check = self.checkpoint
+        for text in [*([check.url_pattern] if check.url_pattern else []), *check.text_present]:
+            yield "checkpoint", text
+        for text in check.aria_contains:
+            yield "checkpoint", text
+        for rule in self.error_map:
+            where = f"error rule {rule.id}"
+            det = rule.detect
+            for candidate in [det.url_pattern, det.dialog_message, *det.text_present]:
+                if candidate:
+                    yield where, candidate
+            if det.element:
+                for text in _bundle_strings(det.element):
+                    yield where, text
+            if rule.recovery and rule.recovery.locator:
+                for text in _bundle_strings(rule.recovery.locator):
+                    yield where, text
 
     @staticmethod
     def _check_step_references(
