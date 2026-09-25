@@ -61,6 +61,15 @@ def ollama() -> Iterator[tuple[Fake, str]]:
         def log_message(self, format: str, *args: Any) -> None:
             return None
 
+        def do_GET(self) -> None:
+            body = json.dumps(
+                {"models": [{"name": "qwen2.5:14b"}, {"name": "llama3.1:8b"}]}
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_POST(self) -> None:
             length = int(self.headers.get("Content-Length", 0))
             fake.paths.append(self.path)
@@ -282,3 +291,13 @@ def test_a_host_without_a_scheme_is_accepted_and_the_environment_is_read(
 
 def test_the_default_host_is_the_local_one() -> None:
     assert OllamaLLM(env={}).host == "http://127.0.0.1:11434"
+
+
+def test_the_installed_models_are_listed_sorted(ollama: tuple[Fake, str]) -> None:
+    _, host = ollama
+    assert OllamaLLM(host=host).installed_models() == ["llama3.1:8b", "qwen2.5:14b"]
+
+
+def test_listing_models_when_ollama_is_down_says_how_to_start_it() -> None:
+    with pytest.raises(LLMConfigError, match="ollama serve"):
+        OllamaLLM(host="http://127.0.0.1:1").installed_models()

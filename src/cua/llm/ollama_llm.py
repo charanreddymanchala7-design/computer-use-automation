@@ -170,6 +170,17 @@ class OllamaLLM:
         self._record(response)
         return response
 
+    def installed_models(self) -> list[str]:
+        """The models this Ollama has pulled."""
+        try:
+            with urllib.request.urlopen(self.host + "/api/tags", timeout=10) as response:
+                data = json.loads(response.read())
+        except (urllib.error.URLError, OSError, ValueError):
+            raise LLMConfigError(
+                f"Ollama is not reachable at {self.host}: start it with `ollama serve`"
+            ) from None
+        return sorted(str(m.get("name", "")) for m in data.get("models") or [])
+
     # --- internals -------------------------------------------------------------------------------
 
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:

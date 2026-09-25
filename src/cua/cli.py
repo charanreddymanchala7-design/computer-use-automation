@@ -34,7 +34,7 @@ from cua.evlog import EventLog
 from cua.llm import LLM, LLMConfigError
 from cua.llm.anthropic_llm import AnthropicLLM
 from cua.llm.gemini_llm import DEFAULT_MODEL as GEMINI_DEFAULT_MODEL
-from cua.llm.gemini_llm import GeminiLLM
+from cua.llm.gemini_llm import GeminiLLM, list_models
 from cua.llm.ollama_llm import DEFAULT_MODEL as OLLAMA_DEFAULT_MODEL
 from cua.llm.ollama_llm import OllamaLLM
 from cua.policy import Policy
@@ -64,6 +64,13 @@ def make_llm(provider: str, model: str, log: EventLog) -> LLM:
     if provider == "gemini":
         return GeminiLLM(model, log=log)
     return AnthropicLLM(model, log=log)
+
+
+def available_models(provider: str) -> list[str]:
+    """The model names a provider will accept right now (the one place a listing is fetched)."""
+    if provider == "ollama":
+        return OllamaLLM().installed_models()
+    return list_models()
 
 
 # --- helpers -----------------------------------------------------------------------------------
@@ -155,6 +162,27 @@ def _root(
     if version:
         typer.echo(f"cua {__version__}")
         raise typer.Exit()
+
+
+@app.command()
+def models(
+    provider: Annotated[
+        str, typer.Option(help="gemini or ollama: whose models to list")
+    ] = "gemini",
+) -> None:
+    """List the model names a provider accepts (use one with `cua run --model`)."""
+    load_dotenv(Path(".env"))
+    if provider not in ("gemini", "ollama"):
+        raise typer.BadParameter(
+            f"{provider!r}: only gemini and ollama can be listed", param_hint="--provider"
+        )
+    try:
+        names = available_models(provider)
+    except LLMConfigError as exc:
+        typer.echo(mark_up("fail", str(exc), color=False), err=True)
+        raise typer.Exit(2) from None
+    for name in names:
+        typer.echo(name)
 
 
 @app.command()

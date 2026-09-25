@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import socket
 import time
 import urllib.error
@@ -222,6 +223,12 @@ class GeminiLLM:
                     raise LLMConfigError(
                         f"the API rejected the key (HTTP {exc.code}): check GEMINI_API_KEY"
                     ) from None
+                if exc.code == 404:
+                    raise LLMConfigError(
+                        f"Gemini does not know the model {self.model!r} (HTTP 404): run "
+                        "`cua models --provider gemini` to see the ones this key can use, then "
+                        "pass one with --model"
+                    ) from None
                 retryable = exc.code == 429 or exc.code >= 500
                 if retryable and attempt < len(_RETRY_WAITS):
                     self._sleep(_RETRY_WAITS[attempt])
@@ -260,3 +267,43 @@ class GeminiLLM:
             stop_reason=response.stop_reason,
             tool_calls=[call.name for call in response.tool_calls],
         )
+
+
+def _version(name: str) -> float:
+    match = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+    return float(match.group(1)) if match else 0.0
+
+
+def list_models(*, env: Mapping[str, str] | None = None, host: str | None = None) -> list[str]:
+    """The Gemini models this key may call ``generateContent`` on, newest version first."""
+    source = env if env is not None else os.environ
+    key = (source.get("GEMINI_API_KEY") or source.get("GOOGLE_API_KEY") or "").strip()
+    if not key:
+        raise LLMConfigError(
+            "GEMINI_API_KEY is not set: get a free key at https://aistudio.google.com/apikey "
+            "and put it in the gitignored .env file (see .env.example)"
+        )
+    base = (host or DEFAULT_HOST).rstrip("/")
+    names: list[str] = []
+    token = ""
+    while True:
+        url = f"{base}/v1beta/models?pageSize=100" + (f"&pageToken={token}" if token else "")
+        request = urllib.request.Request(url, headers={"x-goog-api-key": key}, method="GET")
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                data = json.loads(response.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code in (400, 401, 403):
+                raise LLMConfigError(
+                    f"the API rejected the key (HTTP {exc.code}): check GEMINI_API_KEY"
+                ) from None
+            raise LLMError(f"listing models failed (HTTP {exc.code})") from None
+        except (urllib.error.URLError, OSError, ValueError):
+            raise LLMError("could not list the Gemini models") from None
+        for model in data.get("models") or []:
+            if "generateContent" in (model.get("supportedGenerationMethods") or []):
+                names.append(str(model.get("name", "")).removeprefix("models/"))
+        token = str(data.get("nextPageToken") or "")
+        if not token:
+            break
+    return sorted({n for n in names if n.startswith("gemini")}, key=lambda n: (-_version(n), n))
