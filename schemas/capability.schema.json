@@ -359,6 +359,12 @@
           ],
           "default": null,
           "title": "Code"
+        },
+        "escalate": {
+          "default": false,
+          "description": "Hard failures only: bring a human in (for example an expired session, which needs credentials that are never stored) instead of just stopping",
+          "title": "Escalate",
+          "type": "boolean"
         }
       },
       "required": [

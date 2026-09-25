@@ -6,118 +6,27 @@ the observation format is exercised exactly as a real model would use it.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
+from tests.discovery_scripts import do, latest_page, lookup_script, loop_for
 from tests.mockbank_support import MockHandle
 
-from cua.agent import DiscoveryLoop, DiscoveryTask, Limits, OutputSpec, ParamSpec, RecordedRun
-from cua.artifact import (
-    AncestorAnchorLocator,
-    ParamRef,
-    SecretRef,
-    TextLocator,
-)
-from cua.evlog import EventLog, read_events
-from cua.gateway import ActionGateway
-from cua.llm import FakeLLM, LLMRequest, LLMResponse, TextPart, ToolResult, tool_call
-from cua.policy import Policy, UrlRule
-from cua.redact import Redactor
+from cua.agent import DiscoveryTask, Limits, ParamSpec, RecordedRun
+from cua.artifact import AncestorAnchorLocator, ParamRef, SecretRef, TextLocator
+from cua.demo.memberserv import lookup_task
+from cua.evlog import read_events
+from cua.llm import TextPart, ToolResult, tool_call
 from cua.surface import PlaywrightSurface
 
 pytestmark = pytest.mark.browser
-
-
-def latest_page(request: LLMRequest) -> str:
-    """The most recent page description the model was shown."""
-    for message in reversed(request.messages):
-        for part in message.parts:
-            texts: list[str] = []
-            if isinstance(part, TextPart):
-                texts = [part.text]
-            elif isinstance(part, ToolResult):
-                texts = [p.text for p in part.content if isinstance(p, TextPart)]
-            for text in texts:
-                if "URL:" in text and "[frame" in text:
-                    return text
-    raise AssertionError("the model was never shown a page")
-
-
-def ref_of(request: LLMRequest, *needles: str) -> str:
-    """The ref of the element whose description contains every needle, found by reading."""
-    page = latest_page(request)
-    for line in page.splitlines():
-        stripped = line.strip()
-        if re.match(r"e\d+ ", stripped) and all(n in stripped for n in needles):
-            return stripped.split()[0]
-    raise AssertionError(f"no element with {needles} on:\n{page}")
-
-
-def do(kind: str, *needles: str, **args: object) -> object:
-    def step(request: LLMRequest) -> LLMResponse:
-        return tool_call("act", kind=kind, ref=ref_of(request, *needles), reason=kind, **args)
-
-    return step
-
-
-def task_for(mock: MockHandle) -> DiscoveryTask:
-    return DiscoveryTask(
-        goal="Sign in and read the current savings balance of a member",
-        start_url=f"{mock.base}/msv/login.cgi",
-        params={"member_id": ParamSpec("12345", "Member number")},
-        outputs={"savings_balance": OutputSpec("Current share savings balance")},
-        secrets=("MOCK_USER", "MOCK_PASS"),
-    )
-
-
-def loop_for(
-    surface: PlaywrightSurface,
-    tmp_path: Path,
-    script: list[object],
-    limits: Limits | None = None,
-) -> tuple[DiscoveryLoop, FakeLLM, ActionGateway, EventLog]:
-    policy = Policy(
-        allow=(UrlRule(host="127.0.0.1", path_prefix="/msv/"),),
-        deny=(UrlRule(host="127.0.0.1", path_prefix="/msv/admin.cgi"),),
-    )
-    log = EventLog(
-        tmp_path / "run.jsonl", run_id="run_e2e", redactor=Redactor(secrets=["demo-only"])
-    )
-    gateway = ActionGateway(surface, policy, log)
-    llm = FakeLLM(script)  # type: ignore[arg-type]
-    return (
-        DiscoveryLoop(surface, gateway, llm, log, limits=limits, run_id="run_e2e"),
-        llm,
-        gateway,
-        log,
-    )
-
-
-def lookup_script() -> list[object]:
-    return [
-        do("fill", "name=u", secret="MOCK_USER"),
-        do("fill", "name=p", secret="MOCK_PASS"),
-        do("click", "type=image"),
-        do("fill", "name=F1", param="member_id"),
-        do("click", "alt=Go"),
-        do("click", "tr", "12345", "TESTERSON"),
-        tool_call(
-            "extract",
-            name="savings_balance",
-            value="$2,480.15",
-            anchor_text="SHARE SAVINGS",
-            reason="the balance",
-        ),
-        tool_call("finish", success=True, summary="read the savings balance"),
-    ]
 
 
 def test_a_member_lookup_is_discovered_end_to_end_and_recorded(
     surface: PlaywrightSurface, mock: MockHandle, tmp_path: Path
 ) -> None:
     loop, llm, _, log = loop_for(surface, tmp_path, lookup_script())
-    run = loop.run(task_for(mock))
+    run = loop.run(lookup_task(mock.base))
 
     assert run.outcome == "finished", run.reason
     assert run.outputs == {"savings_balance": "$2,480.15"}
@@ -165,7 +74,7 @@ def test_no_secret_reaches_the_model_the_recording_or_the_log(
     surface: PlaywrightSurface, mock: MockHandle, tmp_path: Path
 ) -> None:
     loop, llm, _, log = loop_for(surface, tmp_path, lookup_script())
-    run = loop.run(task_for(mock))
+    run = loop.run(lookup_task(mock.base))
     everything = run.model_dump_json() + log.path.read_text() + repr(llm.calls)
     assert "demo-only" not in everything
     assert "teller01" not in everything.replace("TELLER01", "")  # the header shows the user name
@@ -177,7 +86,7 @@ def test_a_read_only_lookup_changes_nothing_on_the_server(
     surface: PlaywrightSurface, mock: MockHandle, tmp_path: Path
 ) -> None:
     loop, _, _, _ = loop_for(surface, tmp_path, lookup_script())
-    loop.run(task_for(mock))
+    loop.run(lookup_task(mock.base))
     state = mock.server.state
     assert state.confirmations == 0
     assert state.closed_accounts == set()
@@ -197,7 +106,7 @@ def test_a_model_that_wanders_into_the_admin_page_is_stopped_and_the_click_is_no
         tool_call("finish", success=False, summary="the goal needs the admin page"),
     ]
     loop, llm, gateway, _ = loop_for(surface, tmp_path, script)
-    run = loop.run(task_for(mock))
+    run = loop.run(lookup_task(mock.base))
     assert run.outcome == "failed"
     assert gateway.blocked_navigations == [f"{mock.base}/msv/admin.cgi"]
     assert "/msv/admin.cgi" not in [r["path"] for r in mock.server.state.requests]
@@ -226,7 +135,7 @@ def test_an_account_closing_click_is_refused_and_the_server_never_sees_it(
         tool_call("finish", success=False, summary="closing an account needs a human"),
     ]
     loop, llm, _, _ = loop_for(surface, tmp_path, script)
-    run = loop.run(task_for(mock))
+    run = loop.run(lookup_task(mock.base))
     assert run.outcome == "failed"
     assert mock.server.state.closed_accounts == set()
     assert "/msv/close.cgi" not in [r["path"] for r in mock.server.state.requests]
@@ -275,6 +184,6 @@ def test_the_limits_stop_a_model_that_never_finishes(
     loop, llm, _, _ = loop_for(
         surface, tmp_path, [tool_call("observe")] * 10, limits=Limits(max_steps=4)
     )
-    run = loop.run(task_for(mock))
+    run = loop.run(lookup_task(mock.base))
     assert run.outcome == "max_steps"
     assert len(llm.calls) == 4

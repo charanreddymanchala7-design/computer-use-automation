@@ -55,6 +55,7 @@ class FakeReplaySurface:
         self.coordinates: dict[str, tuple[float, float]] = {}
         self.provoke: dict[str, list[tuple[str, str]]] = {}  # action kind -> dialogs raised
         self.on_act: Callable[[Action], None] | None = None
+        self.on_click: dict[str, Callable[[FakeReplaySurface], None]] = {}  # by bundle description
         self.pauses: list[int] = []
         self.secrets: dict[str, str] = {}
         self.policy: Callable[[str, str], bool] | None = None
@@ -72,6 +73,9 @@ class FakeReplaySurface:
         self.acts.append(action)
         if self.on_act is not None:
             self.on_act(action)
+        hook = self.on_click.get(self._refs.get(action.ref or "", ""))
+        if action.kind == "click" and hook is not None:
+            hook(self)
         events = []
         for kind, message in self.provoke.get(action.kind, []):
             accepted = self.policy(kind, message) if self.policy else True
