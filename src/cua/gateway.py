@@ -16,6 +16,7 @@ from enum import StrEnum
 from typing import Any
 
 from cua.artifact import RiskClass
+from cua.control import ControlLease, Controller, StaleEpoch
 from cua.evlog import EventLog
 from cua.policy import Policy, max_risk
 from cua.result import CuaError
@@ -98,10 +99,13 @@ class ActionGateway:
         log: EventLog,
         *,
         guard_requests: bool = True,
+        lease: ControlLease | None = None,
     ) -> None:
         self._surface = surface
         self._policy = policy
         self._log = log
+        self._lease = lease
+        self._epoch: int | None = None
         self._pending: dict[str, str] = {}  # confirmation id -> action key, awaiting a human
         self._granted: dict[str, str] = {}  # confirmation id -> action key, confirmed, unused
         # Navigations the network guard refused. An action that provoked one did not do what it
@@ -109,6 +113,19 @@ class ActionGateway:
         self.blocked_navigations: list[str] = []
         if guard_requests:
             surface.set_request_guard(self._request_allowed)
+
+    # --- the control lease ----------------------------------------------------------------------
+
+    def attach(self, epoch: int) -> None:
+        """Bind the agent's actions to the epoch it was granted; a leased gateway needs this."""
+        self._epoch = epoch
+
+    def _hold_lease(self) -> None:
+        if self._lease is None:
+            return
+        if self._epoch is None:
+            raise StaleEpoch("this gateway is leased but was never attached to an epoch")
+        self._lease.require(Controller.AGENT, self._epoch)
 
     # --- confirmations --------------------------------------------------------------------------
 
@@ -155,6 +172,7 @@ class ActionGateway:
         confirmation_id: str | None = None,
         step: str | None = None,
     ) -> GatedResult:
+        self._hold_lease()  # first, before anything touches the page
         info = self._surface.element_info(action.ref) if action.ref is not None else None
         target = describe_target(action, info)
         # what the page says about a control wins over what a caller declares: risk only goes up
