@@ -40,9 +40,10 @@ from cua.llm.base import (
     Usage,
 )
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash"
 DEFAULT_HOST = "https://generativelanguage.googleapis.com"
 _RETRY_WAITS = (5.0, 15.0, 30.0, 60.0)  # after a 429 or a 5xx: at most four retries
+_NETWORK_RETRIES = 3  # dropped connections are retried this many times
 _ALLOWED_SCHEMA_KEYS = frozenset(
     {"type", "description", "properties", "required", "enum", "items", "format", "nullable"}
     | {"minimum", "maximum"}
@@ -225,9 +226,9 @@ class GeminiLLM:
                     ) from None
                 if exc.code == 404:
                     raise LLMConfigError(
-                        f"Gemini does not know the model {self.model!r} (HTTP 404): run "
-                        "`cua models --provider gemini` to see the ones this key can use, then "
-                        "pass one with --model"
+                        f"Gemini will not serve the model {self.model!r} (HTTP 404: unknown, or "
+                        "retired for new keys): run `cua models --provider gemini` to see the "
+                        "ones this key can use, then pass one with --model"
                     ) from None
                 retryable = exc.code == 429 or exc.code >= 500
                 if retryable and attempt < len(_RETRY_WAITS):
@@ -240,10 +241,18 @@ class GeminiLLM:
                     ) from None
                 raise LLMError(f"Gemini call failed (HTTP {exc.code})") from None
             except urllib.error.URLError as exc:
+                if attempt < _NETWORK_RETRIES:  # a dropped connection is usually a blip
+                    self._sleep(_RETRY_WAITS[attempt])
+                    continue
                 if isinstance(exc.reason, socket.timeout | TimeoutError):
                     raise LLMError("Gemini did not answer in time") from None
-                raise LLMError("could not reach the Gemini API") from None
+                raise LLMError(
+                    f"could not reach the Gemini API ({type(exc.reason).__name__})"
+                ) from None
             except (TimeoutError, OSError):
+                if attempt < _NETWORK_RETRIES:
+                    self._sleep(_RETRY_WAITS[attempt])
+                    continue
                 raise LLMError("Gemini did not answer in time") from None
             try:
                 data = json.loads(raw)

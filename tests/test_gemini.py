@@ -123,7 +123,7 @@ def test_the_key_travels_in_a_header_never_in_the_url(gemini: tuple[Fake, str]) 
     step(make(host))
     assert fake.headers[0]["x-goog-api-key"] == KEY
     assert KEY not in fake.paths[0]
-    assert fake.paths == ["/v1beta/models/gemini-2.5-flash:generateContent"]
+    assert fake.paths == ["/v1beta/models/gemini-3.5-flash:generateContent"]
 
 
 def test_the_request_carries_the_system_prompt_tools_and_limits(gemini: tuple[Fake, str]) -> None:
@@ -302,7 +302,7 @@ def test_only_metadata_is_logged_never_prompts_or_replies(
     step(make(host, log=log), Message.user(TextPart("member 12345 card 4111111111111111")))
     text = (tmp_path / "log.jsonl").read_text()
     event = read_events(log.path)[0]
-    assert (event["event"], event["model"]) == ("llm_step", "gemini-2.5-flash")
+    assert (event["event"], event["model"]) == ("llm_step", "gemini-3.5-flash")
     assert "2,480.15" not in text
     assert "4111" not in text
     assert KEY not in text
@@ -321,7 +321,7 @@ def test_a_missing_key_says_where_to_get_and_put_one() -> None:
 
 
 def test_google_api_key_is_accepted_too() -> None:
-    assert GeminiLLM(env={"GOOGLE_API_KEY": KEY}).model == "gemini-2.5-flash"
+    assert GeminiLLM(env={"GOOGLE_API_KEY": KEY}).model == "gemini-3.5-flash"
 
 
 def test_the_key_is_never_in_a_repr_or_an_error(gemini: tuple[Fake, str]) -> None:
@@ -399,7 +399,8 @@ def test_an_unknown_model_says_how_to_find_a_real_one(gemini: tuple[Fake, str]) 
     fake.replies = [(404, {"error": {"message": "models/gemini-9 is not found"}})]
     with pytest.raises(LLMConfigError) as caught:
         step(make(host))
-    assert "gemini-2.5-flash" in str(caught.value)
+    assert "gemini-3.5-flash" in str(caught.value)
+    assert "retired" in str(caught.value)
     assert "cua models --provider gemini" in str(caught.value)
 
 
@@ -458,3 +459,36 @@ def test_listing_models_reports_a_rejected_key(gemini: tuple[Fake, str]) -> None
     fake.replies = [(403, {"error": {"message": "nope"}})]
     with pytest.raises(LLMConfigError, match="rejected"):
         list_models(env={"GEMINI_API_KEY": KEY}, host=host)
+
+
+# --- a flaky connection -------------------------------------------------------------------------
+
+
+def test_a_dropped_connection_is_retried_and_the_run_carries_on(
+    gemini: tuple[Fake, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import urllib.error
+    import urllib.request
+
+    _, host = gemini
+    real = urllib.request.urlopen
+    attempts: list[int] = []
+
+    def flaky(request: Any, timeout: float = 0) -> Any:
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise urllib.error.URLError(ConnectionResetError("reset by peer"))
+        return real(request, timeout=timeout)
+
+    monkeypatch.setattr("cua.llm.gemini_llm.urllib.request.urlopen", flaky)
+    waits: list[float] = []
+    assert step(make(host, sleep=waits.append)).text == "ok"
+    assert len(attempts) == 3
+    assert len(waits) == 2
+
+
+def test_the_kind_of_network_failure_is_named_but_nothing_else() -> None:
+    with pytest.raises(LLMError) as caught:
+        step(make("http://127.0.0.1:1", timeout_s=2))
+    assert "ConnectionRefusedError" in str(caught.value)
+    assert KEY not in str(caught.value)

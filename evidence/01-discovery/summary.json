@@ -1,13 +1,13 @@
 {
   "outcome": "failed",
-  "reason": "the model call failed: Gemini call failed (HTTP 404)",
-  "model": "gemini-2.5-flash",
-  "steps_recorded": 1,
-  "llm_steps": 0,
-  "tokens": 0,
-  "cost_usd": 0.0,
-  "duration_s": 0.9,
-  "captured_at": "2026-09-25T13:05:45Z",
+  "reason": "the model call failed: could not reach the Gemini API",
+  "model": "gemini-3.5-flash",
+  "steps_recorded": 5,
+  "llm_steps": 5,
+  "tokens": 15423,
+  "cost_usd": null,
+  "duration_s": 143.8,
+  "captured_at": "2026-09-25T13:15:05Z",
   "warnings": [],
-  "error": "only a finished run can be synthesized (this one is failed: the model call failed: Gemini call failed (HTTP 404))"
+  "error": "only a finished run can be synthesized (this one is failed: the model call failed: could not reach the Gemini API)"
 }
