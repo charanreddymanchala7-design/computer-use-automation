@@ -39,7 +39,11 @@ def call(base: str, path: str, body: dict[str, Any] | None = None, token: str = 
 def wait_until_asked(base: str, timeout_s: float) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        state = call(base, "/api/state")
+        try:
+            state = call(base, "/api/state")
+        except OSError:  # the run has not opened its operator page yet
+            time.sleep(0.1)
+            continue
         if state["phase"] == "waiting_for_human":
             return state  # type: ignore[no-any-return]
         time.sleep(0.1)
