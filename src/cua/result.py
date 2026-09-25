@@ -81,11 +81,21 @@ class HardFailure(CuaError):
 
 
 class EscalationRequired(CuaError):
-    def __init__(self, reason: str, *, request_id: str, step_id: str | None = None) -> None:
+    def __init__(
+        self,
+        reason: str,
+        *,
+        request_id: str,
+        step_id: str | None = None,
+        expected: str | None = None,
+        observed: str | None = None,
+    ) -> None:
         super().__init__(reason)
         self.reason = reason
         self.request_id = request_id
         self.step_id = step_id
+        self.expected = expected  # what the run was waiting for, for the person who is asked
+        self.observed = observed
 
 
 # --- the result -------------------------------------------------------------------------------
@@ -98,6 +108,17 @@ class RecoveryRecord(StrictModel):
     step_id: str
     kind: Literal["dismiss", "wait_retry"]
     attempts: int = Field(ge=1)
+
+
+class InterventionRecord(StrictModel):
+    """A person was brought in during the run, and how that ended."""
+
+    request_id: str
+    step_id: str
+    reason_code: str
+    outcome: Literal["handed_back", "aborted", "timed_out"]
+    taken_by: str | None = None
+    duration_ms: int = Field(ge=0)
 
 
 class DegradedLocator(StrictModel):
@@ -151,6 +172,7 @@ class ReplayResult(StrictModel):
     escalation: EscalationInfo | None = None
     recoveries: list[RecoveryRecord] = Field(default_factory=list)
     degraded: list[DegradedLocator] = Field(default_factory=list)
+    interventions: list[InterventionRecord] = Field(default_factory=list)
     evidence: EvidenceRefs = Field(default_factory=EvidenceRefs)
     duration_ms: int = Field(ge=0)
 
@@ -185,6 +207,7 @@ class ReplayResult(StrictModel):
         duration_ms: int,
         recoveries: list[RecoveryRecord] | None = None,
         degraded: list[DegradedLocator] | None = None,
+        interventions: list[InterventionRecord] | None = None,
         evidence: EvidenceRefs | None = None,
     ) -> Self:
         """Turn whatever ended a run into the one result a caller understands."""
@@ -195,6 +218,7 @@ class ReplayResult(StrictModel):
             "duration_ms": duration_ms,
             "recoveries": recoveries or [],
             "degraded": degraded or [],
+            "interventions": interventions or [],
             "evidence": evidence or EvidenceRefs(),
         }
         return cls(**common, **_error_fields(exc))

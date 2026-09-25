@@ -33,6 +33,8 @@ from cua.artifact import (
     Step,
     fill_placeholders,
 )
+from cua.control import build_request
+from cua.control.handoff import Handoff
 from cua.evlog import EventLog, write_redacted_json
 from cua.gateway import ActionGateway, Decision, Reason
 from cua.replay.match import url_matches
@@ -43,6 +45,7 @@ from cua.result import (
     EscalationRequired,
     EvidenceRefs,
     HardFailure,
+    InterventionRecord,
     RecoverableCondition,
     RecoveryRecord,
     ReplayResult,
@@ -52,6 +55,9 @@ from cua.surface import Action, LocatingSurface, LocatorNotFound, Resolved, Surf
 
 _PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _SEEN_LIMIT = 200
+# A step that is stuck for one of these reasons is worth a person's time. Everything else is an
+# answer (business outcome), a known crash or a broken input, and asking someone would not help.
+_HANDOFF_FAILURES = frozenset({"locator_not_found", "expectation_failed", "checkpoint_failed"})
 
 
 @dataclass(frozen=True)
@@ -61,6 +67,7 @@ class ReplayLimits:
     run_timeout_s: float = 120.0
     slow_threshold_ms: int = 1000  # waiting at least this long is worth reporting
     max_backoff_ms: int = 10_000
+    max_interventions: int = 2  # how many times one run may ask a person, then it just fails
 
 
 @dataclass
@@ -76,6 +83,7 @@ class _Ctx:
     declared: list[tuple[str, str]] = field(default_factory=list)  # (kind, message) of this step
     attempts: dict[tuple[str, str], int] = field(default_factory=dict)  # (rule, step) -> tries
     escalations: int = 0
+    interventions: list[InterventionRecord] = field(default_factory=list)
 
 
 def _describe_schema_error(error: jsonschema.ValidationError, schema: Mapping[str, Any]) -> str:
@@ -112,6 +120,7 @@ class ReplayEngine:
         limits: ReplayLimits | None = None,
         clock: Any = time.monotonic,
         run_id: str = "run",
+        handoff: Handoff | None = None,
     ) -> None:
         self._surface = surface
         self._gateway = gateway
@@ -122,6 +131,7 @@ class ReplayEngine:
         self._limits = limits or ReplayLimits()
         self._clock = clock
         self._run_id = run_id
+        self._handoff = handoff
         self._redact = log.redactor.redact_text
 
     # --- the run -------------------------------------------------------------------------------
@@ -139,12 +149,14 @@ class ReplayEngine:
         self._log.emit(
             "replay_start", capability=f"{capability.id}@{capability.capability_version}"
         )
+        if self._handoff is not None:
+            self._handoff.begin()
         try:
             self._validate_inputs(ctx)
             self._prepare_secrets(ctx)
             for step in capability.steps:
                 self._check_run_timeout(ctx, step)
-                self._execute(ctx, step)
+                self._run_step(ctx, step)
             self._await(ctx, "checkpoint", self._checkpoint_expectation(ctx), "checkpoint_failed")
             outputs = self._validated_outputs(ctx)
             result = ReplayResult(
@@ -156,6 +168,7 @@ class ReplayEngine:
                 outputs=outputs,
                 recoveries=ctx.recoveries,
                 degraded=ctx.degraded,
+                interventions=ctx.interventions,
                 duration_ms=self._elapsed_ms(ctx),
             )
         except CuaError as exc:
@@ -167,8 +180,12 @@ class ReplayEngine:
                 duration_ms=self._elapsed_ms(ctx),
                 recoveries=ctx.recoveries,
                 degraded=ctx.degraded,
+                interventions=ctx.interventions,
                 evidence=self._capture_evidence(exc),
             )
+        finally:
+            if self._handoff is not None:
+                self._handoff.end()
         self._log.emit(
             "replay_end",
             status=result.status.value,
@@ -228,7 +245,31 @@ class ReplayEngine:
 
     # --- one step ------------------------------------------------------------------------------
 
-    def _execute(self, ctx: _Ctx, step: Step) -> None:
+    def _run_step(self, ctx: _Ctx, step: Step) -> None:
+        """Run one step. If it gets stuck and a person can help, ask, and carry on afterwards.
+
+        What a person's help may repeat depends on where the step stopped. Before its action ran
+        (an element that was missing, a session that had expired) the whole step is tried again.
+        Once the action has run, only the *check* is: pressing Submit a second time because the
+        confirmation page was slow could submit twice. Nothing that can be handed to a person is
+        raised between an action running and the step moving on to its check."""
+        strategy: str | None = None
+        performed = False
+        while True:
+            try:
+                if not performed:
+                    strategy = self._perform(ctx, step)
+                    performed = True
+                self._verify(ctx, step)
+                extra: dict[str, Any] = {"strategy": strategy} if strategy else {}
+                self._log.emit("step_ok", step=step.id, **extra)
+                return
+            except CuaError as exc:
+                if not self._should_hand_off(ctx, exc):
+                    raise
+                self._hand_off(ctx, step, exc)
+
+    def _perform(self, ctx: _Ctx, step: Step) -> str | None:
         self._log.emit("step_start", step=step.id, action=step.action.value)
         self._install_dialog_policy(ctx, step)
         strategy: str | None = None
@@ -255,10 +296,61 @@ class ReplayEngine:
             if (self._clock() - acting) * 1000 >= self._limits.slow_threshold_ms:
                 self._record_slow(ctx, step.id, 1)
             strategy = target.strategy_kind if target else None
+        return strategy
+
+    def _verify(self, ctx: _Ctx, step: Step) -> None:
         if step.expect is not None and step.action is not ActionKind.WAIT_FOR:
             self._await(ctx, step.id, step.expect, "expectation_failed")
-        extra: dict[str, Any] = {"strategy": strategy} if strategy else {}
-        self._log.emit("step_ok", step=step.id, **extra)
+
+    # --- asking a person for help ---------------------------------------------------------------
+
+    def _should_hand_off(self, ctx: _Ctx, exc: CuaError) -> bool:
+        if self._handoff is None or len(ctx.interventions) >= self._limits.max_interventions:
+            return False
+        if isinstance(exc, EscalationRequired):
+            # a held irreversible action is approved through the gateway, not by taking the page
+            return exc.reason != "confirmation_required"
+        return isinstance(exc, HardFailure) and exc.code in _HANDOFF_FAILURES
+
+    def _hand_off(self, ctx: _Ctx, step: Step, exc: CuaError) -> None:
+        """Give the live session to a person. Returns once they hand it back; otherwise the run
+        ends as escalated, with the reason it was stuck."""
+        assert self._handoff is not None
+        if isinstance(exc, EscalationRequired):
+            code, request_id = exc.reason, exc.request_id
+            expected, observed = exc.expected or "the step to proceed", exc.observed or self._seen()
+        else:
+            assert isinstance(exc, HardFailure)
+            ctx.escalations += 1
+            code, request_id = exc.code, f"ir_{self._run_id}_{ctx.escalations}"
+            expected, observed = exc.expected, exc.observed
+        number = len(ctx.interventions) + 1
+        request = build_request(
+            request_id=request_id,
+            capability_id=ctx.capability.id,
+            goal=ctx.capability.title,
+            step_id=step.id,
+            outcome_code=code,
+            expected=expected,
+            observed=observed,
+            url=self._surface.current_url(),
+            screenshot=self._snapshot(exc, f"intervention-{number}"),
+            redactor=self._log.redactor,
+            now=self._clock(),
+        )
+        handed = self._handoff.escalate(request)
+        ctx.interventions.append(
+            InterventionRecord(
+                request_id=request_id,
+                step_id=step.id,
+                reason_code=request.reason_code,
+                outcome=handed.outcome,
+                taken_by=handed.taken_by,
+                duration_ms=handed.duration_ms,
+            )
+        )
+        if handed.outcome != "handed_back":
+            raise EscalationRequired(code, request_id=request_id, step_id=step.id)
 
     def _url(self, ctx: _Ctx, step: Step) -> str:
         template = step.url_template or ""
@@ -523,6 +615,8 @@ class ReplayEngine:
                     rule.code,
                     request_id=f"ir_{self._run_id}_{ctx.escalations}",
                     step_id=step_id,
+                    expected=wanted,
+                    observed=self._seen(),
                 )
             raise self._fail(
                 step_id,
@@ -606,19 +700,32 @@ class ReplayEngine:
 
     def _capture_evidence(self, exc: CuaError) -> EvidenceRefs:
         """A screenshot and a redacted page snapshot, for anything a person may have to debug."""
-        if self._evidence_dir is None or not isinstance(
-            exc, HardFailure | EscalationRequired | RecoverableCondition
-        ):
+        if not isinstance(exc, HardFailure | EscalationRequired | RecoverableCondition):
             return EvidenceRefs()
-        folder = self._evidence_dir / self._run_id
+        if self._write_snapshot(exc, "failure.png", "page.json") is None:
+            return EvidenceRefs(log=self._log.path.name) if self._evidence_dir else EvidenceRefs()
+        return EvidenceRefs(
+            screenshot="failure.png", aria_snapshot="page.json", log=self._log.path.name
+        )
+
+    def _snapshot(self, exc: CuaError, stem: str) -> str | None:
+        """What a person is shown when asked for help: the screenshot's path under the evidence
+        directory, or ``None`` when no evidence is being kept."""
+        written = self._write_snapshot(exc, f"{stem}.png", f"{stem}.json")
+        return None if written is None else f"{self._run_id}/{stem}.png"
+
+    def _write_snapshot(self, exc: CuaError, png: str, document: str) -> Path | None:
+        if self._evidence_dir is None:
+            return None
         try:
             obs = self._surface.observe()
         except SurfaceError:
-            return EvidenceRefs(log=self._log.path.name)
+            return None
+        folder = self._evidence_dir / self._run_id
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / "failure.png").write_bytes(obs.screenshot)
+        (folder / png).write_bytes(obs.screenshot)
         write_redacted_json(
-            folder / "page.json",
+            folder / document,
             {
                 "failure": {"code": str(exc), "type": type(exc).__name__},
                 "url": urlsplit(obs.url).path,
@@ -629,6 +736,4 @@ class ReplayEngine:
             },
             self._log.redactor,
         )
-        return EvidenceRefs(
-            screenshot="failure.png", aria_snapshot="page.json", log=self._log.path.name
-        )
+        return folder / png
