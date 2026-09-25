@@ -1,0 +1,25 @@
+{"ts": "2026-09-25T13:58:03.895123+00:00", "run_id": "06-agent-call", "event": "replay_start", "capability": "member_lookup@1.0.0"}
+{"ts": "2026-09-25T13:58:03.895940+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s1", "action": "navigate"}
+{"ts": "2026-09-25T13:58:03.978718+00:00", "run_id": "06-agent-call", "event": "action", "step": "s1", "action": "navigate", "target": "http://127.0.0.1:62326/msv/login.cgi", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:03.979060+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s1"}
+{"ts": "2026-09-25T13:58:03.979161+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s2", "action": "fill"}
+{"ts": "2026-09-25T13:58:04.081488+00:00", "run_id": "06-agent-call", "event": "action", "step": "s2", "action": "fill", "target": "e1 <input> 'User ID'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_USER"}
+{"ts": "2026-09-25T13:58:04.081831+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s2", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:04.082304+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s3", "action": "fill"}
+{"ts": "2026-09-25T13:58:04.160582+00:00", "run_id": "06-agent-call", "event": "action", "step": "s3", "action": "fill", "target": "e2 <input> 'Password'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_PASS"}
+{"ts": "2026-09-25T13:58:04.160953+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s3", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:04.161379+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s4", "action": "click"}
+{"ts": "2026-09-25T13:58:04.269852+00:00", "run_id": "06-agent-call", "event": "action", "step": "s4", "action": "click", "target": "e3 <input> ''", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:04.270171+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s4", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:58:04.270559+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s5", "action": "fill"}
+{"ts": "2026-09-25T13:58:04.352330+00:00", "run_id": "06-agent-call", "event": "action", "step": "s5", "action": "fill", "target": "e4 <input> 'Member No:'", "outcome": "ok", "reason": "ok", "typed": "12346", "risk": "read"}
+{"ts": "2026-09-25T13:58:04.352682+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s5", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:04.352819+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s6", "action": "click"}
+{"ts": "2026-09-25T13:58:04.446168+00:00", "run_id": "06-agent-call", "event": "action", "step": "s6", "action": "click", "target": "e5 <img> 'Go'", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:04.446472+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s6", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:58:04.446564+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s7", "action": "click"}
+{"ts": "2026-09-25T13:58:04.550523+00:00", "run_id": "06-agent-call", "event": "action", "step": "s7", "action": "click", "target": "e6 <td> (contents not logged)", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:04.550832+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s7", "strategy": "text"}
+{"ts": "2026-09-25T13:58:04.550928+00:00", "run_id": "06-agent-call", "event": "step_start", "step": "s8", "action": "extract"}
+{"ts": "2026-09-25T13:58:04.580335+00:00", "run_id": "06-agent-call", "event": "step_ok", "step": "s8", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:04.588879+00:00", "run_id": "06-agent-call", "event": "replay_end", "outcome": "completed", "status": "success", "duration_ms": 693}

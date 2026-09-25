@@ -1,0 +1,42 @@
+{"ts": "2026-09-25T13:58:01.029720+00:00", "run_id": "05-handoff", "event": "replay_start", "capability": "member_lookup@1.0.0"}
+{"ts": "2026-09-25T13:58:01.031319+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s1", "action": "navigate"}
+{"ts": "2026-09-25T13:58:01.111564+00:00", "run_id": "05-handoff", "event": "action", "step": "s1", "action": "navigate", "target": "http://127.0.0.1:62326/msv/login.cgi", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:01.111958+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s1"}
+{"ts": "2026-09-25T13:58:01.112297+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s2", "action": "fill"}
+{"ts": "2026-09-25T13:58:01.210765+00:00", "run_id": "05-handoff", "event": "action", "step": "s2", "action": "fill", "target": "e1 <input> 'User ID'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_USER"}
+{"ts": "2026-09-25T13:58:01.211091+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s2", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:01.211255+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s3", "action": "fill"}
+{"ts": "2026-09-25T13:58:01.289673+00:00", "run_id": "05-handoff", "event": "action", "step": "s3", "action": "fill", "target": "e2 <input> 'Password'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_PASS"}
+{"ts": "2026-09-25T13:58:01.289996+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s3", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:01.290090+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s4", "action": "click"}
+{"ts": "2026-09-25T13:58:01.464355+00:00", "run_id": "05-handoff", "event": "action", "step": "s4", "action": "click", "target": "e3 <input> ''", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:01.464657+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s4", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:58:01.464754+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s5", "action": "fill"}
+{"ts": "2026-09-25T13:58:01.548530+00:00", "run_id": "05-handoff", "event": "action", "step": "s5", "action": "fill", "target": "e4 <input> 'Member No:'", "outcome": "ok", "reason": "ok", "typed": "12345", "risk": "read"}
+{"ts": "2026-09-25T13:58:01.548862+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s5", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:01.548965+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s6", "action": "click"}
+{"ts": "2026-09-25T13:58:01.636722+00:00", "run_id": "05-handoff", "event": "action", "step": "s6", "action": "click", "target": "e5 <img> 'Go'", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:01.637052+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s6", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:58:01.637150+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s7", "action": "click"}
+{"ts": "2026-09-25T13:58:01.650958+00:00", "run_id": "05-handoff", "event": "condition", "step": "s7", "outcome": "hard_failure", "reason": "session_expired"}
+{"ts": "2026-09-25T13:58:01.824173+00:00", "run_id": "05-handoff", "event": "intervention_raised", "step": "s7", "reason": "session_expired", "request_id": "ir_05-handoff_1", "outcome_code": "session_expired"}
+{"ts": "2026-09-25T13:58:02.076522+00:00", "run_id": "05-handoff", "event": "control_taken", "request_id": "ir_05-handoff_1", "actor": "simulated operator"}
+{"ts": "2026-09-25T13:58:02.258048+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 1, "what": "typed 8 characters into text field 'name=u'", "frame": "main"}
+{"ts": "2026-09-25T13:58:02.296176+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 2, "what": "typed into a password field 'name=p'", "frame": "main"}
+{"ts": "2026-09-25T13:58:02.296917+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 3, "what": "click image button", "frame": "main"}
+{"ts": "2026-09-25T13:58:02.306995+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 4, "what": "navigated to /msv/frameset.cgi", "frame": ""}
+{"ts": "2026-09-25T13:58:02.318424+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 5, "what": "navigated to /msv/hdr.cgi", "frame": "hdr"}
+{"ts": "2026-09-25T13:58:02.319231+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 6, "what": "navigated to /msv/nav.cgi", "frame": "nav"}
+{"ts": "2026-09-25T13:58:02.322454+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 7, "what": "navigated to /msv/search.cgi", "frame": "main"}
+{"ts": "2026-09-25T13:58:02.520782+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 8, "what": "typed 5 characters into text field 'name=F1'", "frame": "main"}
+{"ts": "2026-09-25T13:58:02.521704+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 9, "what": "click img 'Go'", "frame": "main"}
+{"ts": "2026-09-25T13:58:02.526383+00:00", "run_id": "05-handoff", "event": "human_action", "request_id": "ir_05-handoff_1", "n": 10, "what": "navigated to /msv/results.cgi", "frame": "main"}
+{"ts": "2026-09-25T13:58:02.688958+00:00", "run_id": "05-handoff", "event": "control_returned", "request_id": "ir_05-handoff_1", "actor": "simulated operator", "actions": 10}
+{"ts": "2026-09-25T13:58:02.784896+00:00", "run_id": "05-handoff", "event": "handback_observed", "url": "/msv/frameset.cgi", "text": "09/25/2026 User: <redacted:secret> Log Off\nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC | Member Inquiry\nLoans\nAdmin\nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC | SEARCH RESULTS\nMember Name Status\n12345 TESTERSON, ADA ACTIVE\nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC", "dialogs": []}
+{"ts": "2026-09-25T13:58:02.785083+00:00", "run_id": "05-handoff", "event": "control_resumed", "request_id": "ir_05-handoff_1"}
+{"ts": "2026-09-25T13:58:02.785218+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s7", "action": "click"}
+{"ts": "2026-09-25T13:58:02.870432+00:00", "run_id": "05-handoff", "event": "action", "step": "s7", "action": "click", "target": "e7 <td> (contents not logged)", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:58:02.870759+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s7", "strategy": "text"}
+{"ts": "2026-09-25T13:58:02.870853+00:00", "run_id": "05-handoff", "event": "step_start", "step": "s8", "action": "extract"}
+{"ts": "2026-09-25T13:58:02.900672+00:00", "run_id": "05-handoff", "event": "step_ok", "step": "s8", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:58:02.907534+00:00", "run_id": "05-handoff", "event": "replay_end", "outcome": "completed", "status": "success", "duration_ms": 1877}

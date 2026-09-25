@@ -1,0 +1,34 @@
+[--] member_lookup@1.0.0 inputs: {'member_id': '***45'}
+[--] replaying member_lookup@1.0.0 (no model is involved)
+[ok] s1 open the start page
+[ok] s2 Enter user id
+[ok] s3 Enter password
+[ok] s4 Click login button
+[ok] s5 Enter member number
+[ok] s6 Click Go to search member
+[!!] s7 stuck (session_expired): a person was asked to help
+[!!] a person took control (simulated operator)
+[--] the person did 10 actions (kept in the run log)
+[ok] control handed back; the page was re-checked and the run continues
+[ok] s7 Click on member row to open member details
+[ok] s8 Extract the current share savings balance for member {member_id}
+
+[ok] RESULT  success  (exit 0)
+    outcome    completed
+    output     savings_balance = $2,480.15
+    handoff    ir_05-handoff_1 at s7: handed_back by simulated operator (1.0 s)
+    human did  typed 8 characters into text field 'name=u'
+    human did  typed into a password field 'name=p'
+    human did  click image button
+    human did  navigated to /msv/frameset.cgi
+    human did  navigated to /msv/hdr.cgi
+    human did  navigated to /msv/nav.cgi
+    human did  navigated to /msv/search.cgi
+    human did  typed 5 characters into text field 'name=F1'
+    human did  click img 'Go'
+    human did  navigated to /msv/results.cgi
+    duration   1.9 s
+[--] evidence: evidence/05-handoff
+[--] operator page: http://127.0.0.1:62379
+
+(exit code 0)

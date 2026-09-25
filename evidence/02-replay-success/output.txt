@@ -1,0 +1,18 @@
+[--] member_lookup@1.0.0 inputs: {'member_id': '***46'}
+[--] replaying member_lookup@1.0.0 (no model is involved)
+[ok] s1 open the start page
+[ok] s2 Enter user id
+[ok] s3 Enter password
+[ok] s4 Click login button
+[ok] s5 Enter member number
+[ok] s6 Click Go to search member
+[ok] s7 Click on member row to open member details
+[ok] s8 Extract the current share savings balance for member {member_id}
+
+[ok] RESULT  success  (exit 0)
+    outcome   completed
+    output    savings_balance = $100.00
+    duration  0.8 s
+[--] evidence: evidence/02-replay-success
+
+(exit code 0)

@@ -106,6 +106,26 @@ class ElementInfo:
     options: list[str]  # option labels for a select
 
 
+_CONTROL_TAGS = frozenset(
+    {"a", "button", "input", "select", "textarea", "label", "img", "summary", "option", "area"}
+)
+_CONTROL_ROLES = frozenset(
+    {"button", "link", "tab", "menuitem", "checkbox", "radio", "combobox", "textbox", "option"}
+)
+
+
+def audit_label(info: ElementInfo) -> str:
+    """How an element is named in logs and results: its ref and tag, and its label only if it is
+    a control. A row or cell holds somebody's record, so its text is not copied into the audit
+    trail; a legacy clickable cell is identified by its handler's name instead."""
+    head = f"{info.ref} <{info.tag}>"
+    if info.tag in _CONTROL_TAGS or info.role in _CONTROL_ROLES:
+        label = info.text or info.label_hint or info.attrs.get("name") or ""
+        return f"{head} {label[:60]!r}"
+    handler = info.attrs.get("onclick")
+    return f"{head} onclick={handler[:40]}" if handler else f"{head} (contents not logged)"
+
+
 @dataclass
 class FrameObservation:
     index: int

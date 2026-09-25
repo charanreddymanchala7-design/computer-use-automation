@@ -1,0 +1,1 @@
+uv run cua replay member_lookup -p member_id=12345 --target http://127.0.0.1:62326 --operator web --operator-port 62379 --debug-port 62378 --wait-for-human 120 --evidence evidence/05-handoff

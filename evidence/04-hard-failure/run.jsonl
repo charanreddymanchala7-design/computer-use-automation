@@ -1,0 +1,22 @@
+{"ts": "2026-09-25T13:57:59.332745+00:00", "run_id": "04-hard-failure", "event": "replay_start", "capability": "member_lookup@1.0.0"}
+{"ts": "2026-09-25T13:57:59.333438+00:00", "run_id": "04-hard-failure", "event": "step_start", "step": "s1", "action": "navigate"}
+{"ts": "2026-09-25T13:57:59.408807+00:00", "run_id": "04-hard-failure", "event": "action", "step": "s1", "action": "navigate", "target": "http://127.0.0.1:62326/msv/login.cgi", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:57:59.409110+00:00", "run_id": "04-hard-failure", "event": "step_ok", "step": "s1"}
+{"ts": "2026-09-25T13:57:59.409198+00:00", "run_id": "04-hard-failure", "event": "step_start", "step": "s2", "action": "fill"}
+{"ts": "2026-09-25T13:57:59.513466+00:00", "run_id": "04-hard-failure", "event": "action", "step": "s2", "action": "fill", "target": "e1 <input> 'User ID'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_USER"}
+{"ts": "2026-09-25T13:57:59.513785+00:00", "run_id": "04-hard-failure", "event": "step_ok", "step": "s2", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:57:59.513882+00:00", "run_id": "04-hard-failure", "event": "step_start", "step": "s3", "action": "fill"}
+{"ts": "2026-09-25T13:57:59.593545+00:00", "run_id": "04-hard-failure", "event": "action", "step": "s3", "action": "fill", "target": "e2 <input> 'Password'", "outcome": "ok", "reason": "ok", "risk": "read", "secret_name": "MOCK_PASS"}
+{"ts": "2026-09-25T13:57:59.593843+00:00", "run_id": "04-hard-failure", "event": "step_ok", "step": "s3", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:57:59.593928+00:00", "run_id": "04-hard-failure", "event": "step_start", "step": "s4", "action": "click"}
+{"ts": "2026-09-25T13:57:59.703191+00:00", "run_id": "04-hard-failure", "event": "action", "step": "s4", "action": "click", "target": "e3 <input> ''", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:57:59.703472+00:00", "run_id": "04-hard-failure", "event": "step_ok", "step": "s4", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:57:59.703574+00:00", "run_id": "04-hard-failure", "event": "step_start", "step": "s5", "action": "fill"}
+{"ts": "2026-09-25T13:57:59.783872+00:00", "run_id": "04-hard-failure", "event": "action", "step": "s5", "action": "fill", "target": "e4 <input> 'Member No:'", "outcome": "ok", "reason": "ok", "typed": "12345", "risk": "read"}
+{"ts": "2026-09-25T13:57:59.784152+00:00", "run_id": "04-hard-failure", "event": "step_ok", "step": "s5", "strategy": "ancestor_anchor"}
+{"ts": "2026-09-25T13:57:59.784247+00:00", "run_id": "04-hard-failure", "event": "step_start", "step": "s6", "action": "click"}
+{"ts": "2026-09-25T13:57:59.870120+00:00", "run_id": "04-hard-failure", "event": "action", "step": "s6", "action": "click", "target": "e5 <img> 'Go'", "outcome": "ok", "reason": "ok", "risk": "read"}
+{"ts": "2026-09-25T13:57:59.870422+00:00", "run_id": "04-hard-failure", "event": "step_ok", "step": "s6", "strategy": "attribute_fingerprint"}
+{"ts": "2026-09-25T13:57:59.870518+00:00", "run_id": "04-hard-failure", "event": "step_start", "step": "s7", "action": "click"}
+{"ts": "2026-09-25T13:57:59.887821+00:00", "run_id": "04-hard-failure", "event": "condition", "step": "s7", "outcome": "hard_failure", "reason": "app_error"}
+{"ts": "2026-09-25T13:58:00.033677+00:00", "run_id": "04-hard-failure", "event": "replay_end", "outcome": "app_error", "status": "hard_failure", "duration_ms": 661}

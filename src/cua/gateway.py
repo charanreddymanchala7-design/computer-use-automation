@@ -21,6 +21,7 @@ from cua.evlog import EventLog
 from cua.policy import Policy, max_risk
 from cua.result import CuaError
 from cua.surface import Action, ActionResult, ElementInfo, RequestInfo, Surface
+from cua.surface.base import audit_label
 
 
 class GatewayError(Exception):
@@ -71,7 +72,7 @@ class GatedResult:
 
 def describe_target(action: Action, info: ElementInfo | None) -> str:
     if info is not None:
-        return f"{info.ref} <{info.tag}> {(info.text or info.label_hint or '')[:60]!r}"
+        return audit_label(info)
     if action.kind == "navigate":
         return action.url or ""
     if action.kind == "press":

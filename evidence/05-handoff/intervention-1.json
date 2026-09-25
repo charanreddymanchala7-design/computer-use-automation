@@ -1,0 +1,33 @@
+{
+  "failure": {
+    "code": "session_expired",
+    "type": "EscalationRequired"
+  },
+  "url": "/msv/frameset.cgi",
+  "frames": [
+    {
+      "name": null,
+      "url": "/msv/frameset.cgi",
+      "text": "",
+      "aria": "- document:\n  - iframe\n  - iframe\n  - iframe"
+    },
+    {
+      "name": "hdr",
+      "url": "/msv/hdr.cgi",
+      "text": "09/25/2026 User: <redacted:secret> Log Off\nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC",
+      "aria": "- table:\n  - rowgroup:\n    - 'row \"09/25/2026 User: <redacted:secret> Log Off\"':\n      - cell \"09/25/2026\"\n      - 'cell \"User: <redacted:secret>\"'\n      - cell \"Log Off\":\n        - link \"Log Off\":\n          - /url: javascript:logoff()\n- paragraph: FICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC"
+    },
+    {
+      "name": "nav",
+      "url": "/msv/nav.cgi",
+      "text": "Member Inquiry\nLoans\nAdmin\nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC",
+      "aria": "- table:\n  - rowgroup:\n    - row \"Member Inquiry Loans Admin\":\n      - cell \"Member Inquiry Loans Admin\":\n        - table:\n          - rowgroup:\n            - row \"Member Inquiry\":\n              - cell \"Member Inquiry\":\n                - link \"Member Inquiry\":\n                  - /url: javascript:go('MI')\n            - row \"Loans\":\n              - cell \"Loans\":\n                - link \"Loans\":\n                  - /url: javascript:go('LN')\n            - row:\n              - cell:\n                - img\n            - row \"Admin\":\n              - cell \"Admin\":\n                - link \"Admin\":\n                  - /url: javascript:go('AD')\n- paragraph: FICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC"
+    },
+    {
+      "name": "main",
+      "url": "/msv/results.cgi",
+      "text": "MEMBERSERV 3.1 SIGN-ON\nEXAMPLE FCU (DEMO)\nUser ID \nPassword \nFICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC",
+      "aria": "- table:\n  - rowgroup:\n    - row \"MEMBERSERV 3.1 SIGN-ON EXAMPLE FCU (DEMO)\":\n      - cell \"MEMBERSERV 3.1 SIGN-ON EXAMPLE FCU (DEMO)\"\n- table:\n  - rowgroup:\n    - row \"User ID\":\n      - cell \"User ID\"\n      - cell:\n        - textbox\n    - row \"Password\":\n      <redacted> cell \"Password\"\n      - cell:\n        - textbox\n    - row \"Submit\":\n      - cell\n      - cell \"Submit\":\n        - button \"Submit\"\n- paragraph: FICTIONAL DEMO SYSTEM - ALL DATA IS SYNTHETIC"
+    }
+  ]
+}

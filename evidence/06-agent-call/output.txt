@@ -1,0 +1,36 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"status\":\"success\",\"outcome_code\":\"completed\",\"capability_id\":\"member_lookup\",\"capability_version\":\"1.0.0\",\"run_id\":\"06-agent-call\",\"outputs\":{\"savings_balance\":\"$100.00\"},\"message\":null,\"failed_step\":null,\"expected\":null,\"observed\":null,\"escalation\":null,\"recoveries\":[],\"degraded\":[],\"interventions\":[],\"evidence\":{\"screenshot\":null,\"aria_snapshot\":null,\"trace\":null,\"log\":null},\"duration_ms\":693}"
+    }
+  ],
+  "structuredContent": {
+    "status": "success",
+    "outcome_code": "completed",
+    "capability_id": "member_lookup",
+    "capability_version": "1.0.0",
+    "run_id": "06-agent-call",
+    "outputs": {
+      "savings_balance": "$100.00"
+    },
+    "message": null,
+    "failed_step": null,
+    "expected": null,
+    "observed": null,
+    "escalation": null,
+    "recoveries": [],
+    "degraded": [],
+    "interventions": [],
+    "evidence": {
+      "screenshot": null,
+      "aria_snapshot": null,
+      "trace": null,
+      "log": null
+    },
+    "duration_ms": 693
+  },
+  "isError": false
+}
+
+(exit code 0)
