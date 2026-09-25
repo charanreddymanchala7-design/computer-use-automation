@@ -308,6 +308,52 @@ def test_placeholders_are_listed_and_filled_with_the_callers_values() -> None:
         fill_placeholders("row {branch}", {"member_id": "1"})
 
 
+# --- expected dialogs and required secrets ------------------------------------------------------
+
+
+def test_a_step_can_declare_the_native_dialog_it_provokes(capability_dict: dict[str, Any]) -> None:
+    step(capability_dict, "s3")["dialogs"] = [
+        {"kind": "confirm", "message": "Open new sub-account for member {member_id}?"}
+    ]
+    cap = load(capability_dict)
+    (dialog,) = cap.steps[2].dialogs
+    assert (dialog.kind, dialog.action) == ("confirm", "accept")  # accepting is the default
+
+
+def test_a_dialog_can_be_declared_as_dismissed(capability_dict: dict[str, Any]) -> None:
+    step(capability_dict, "s3")["dialogs"] = [
+        {"kind": "confirm", "message": "Discard changes?", "action": "dismiss"}
+    ]
+    assert load(capability_dict).steps[2].dialogs[0].action == "dismiss"
+
+
+def test_dialog_messages_follow_the_same_placeholder_rules(capability_dict: dict[str, Any]) -> None:
+    step(capability_dict, "s3")["dialogs"] = [{"kind": "alert", "message": "Hello {ghost}"}]
+    with pytest.raises(ValidationError, match="undeclared input 'ghost'"):
+        load(capability_dict)
+
+
+def test_an_unknown_dialog_kind_is_rejected(capability_dict: dict[str, Any]) -> None:
+    step(capability_dict, "s3")["dialogs"] = [{"kind": "popup", "message": "x"}]
+    with pytest.raises(ValidationError, match="popup"):
+        load(capability_dict)
+
+
+def test_the_secrets_a_capability_needs_are_listed_by_name(capability_dict: dict[str, Any]) -> None:
+    assert load(capability_dict).required_secrets() == []
+    step(capability_dict, "s2")["value"] = {"source": "secret", "name": "BANK_PASSWORD"}
+    step(capability_dict, "s2")["sensitive"] = True
+    capability_dict["steps"].insert(
+        2,
+        {
+            **step(capability_dict, "s2"),
+            "id": "s2b",
+            "value": {"source": "secret", "name": "BANK_USER"},
+        },
+    )
+    assert load(capability_dict).required_secrets() == ["BANK_PASSWORD", "BANK_USER"]
+
+
 # --- inputs, outputs and extraction -----------------------------------------------------------
 
 

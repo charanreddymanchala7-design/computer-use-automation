@@ -313,6 +313,18 @@ _ACTION_OPERANDS: dict[ActionKind, tuple[tuple[str, ...], tuple[str, ...]]] = {
 }
 
 
+class ExpectedDialog(_Model):
+    """A native dialog a step is known to provoke, and what to do with it.
+
+    Declared so replay can accept the confirm the app always raises, and can treat any dialog
+    that is *not* declared as unexpected (something to stop for, never to click through).
+    """
+
+    kind: Literal["alert", "confirm", "prompt", "beforeunload"]
+    message: str = Field(min_length=1, description="Exact text; `{input}` placeholders allowed")
+    action: Literal["accept", "dismiss"] = "accept"
+
+
 class Step(_Model):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,31}$")
     action: ActionKind
@@ -326,6 +338,7 @@ class Step(_Model):
     risk_class: RiskClass
     sensitive: bool = False
     expect: Expectation | None = None
+    dialogs: list[ExpectedDialog] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _operands_match_action(self) -> Self:
@@ -455,6 +468,10 @@ class Capability(_Model):
     error_map: list[ErrorRule] = Field(default_factory=list)
     provenance: Provenance | None = None
 
+    def required_secrets(self) -> list[str]:
+        """Names of the secrets the steps type, sorted: what a caller must have configured."""
+        return sorted({s.value.name for s in self.steps if isinstance(s.value, SecretRef)})
+
     def sensitive_params(self) -> set[str]:
         return {n for n, p in _properties(self.inputs).items() if p.get(_SENSITIVE_KEYWORD) is True}
 
@@ -518,6 +535,8 @@ class Capability(_Model):
             if step.expect:
                 for text in _expectation_strings(step.expect):
                     yield f"step {step.id} expect", text
+            for dialog in step.dialogs:
+                yield f"step {step.id} dialog", dialog.message
         check = self.checkpoint
         for text in [*([check.url_pattern] if check.url_pattern else []), *check.text_present]:
             yield "checkpoint", text

@@ -227,6 +227,28 @@ def test_literal_text_that_equals_a_parameter_value_is_recorded_as_the_parameter
     )  # otherwise replay is stuck on 12345
 
 
+def test_a_sensitive_parameter_is_typed_but_never_shown_to_the_model_or_kept_in_the_run(
+    tmp_path: Path,
+) -> None:
+    task = DiscoveryTask(
+        goal="g",
+        start_url=f"{BASE}/msv/login.cgi",
+        params={
+            "member_id": ParamSpec("12345", "Member number"),
+            "tin": ParamSpec("000-00-0001", "Tax id", sensitive=True),
+        },
+    )
+    ran = go(tmp_path, [act(kind="fill", ref="e1", param="tin"), FINISH], task=task)
+    prompt = texts(ran.llm.calls[0].messages[0])
+    assert "000-00-0001" not in prompt
+    assert "tin = <withheld>" in prompt
+    assert "member_id = 12345" in prompt  # only sensitive values are withheld
+    assert ran.surface.acts[1] == Action.fill("e1", text="000-00-0001")  # it is still typed
+    assert ran.run.params == {"member_id": "12345", "tin": "<withheld>"}
+    assert "000-00-0001" not in ran.run.model_dump_json()
+    assert ran.run.steps[1].value == ParamRef(name="tin")
+
+
 def test_a_constant_stays_a_literal(tmp_path: Path) -> None:
     ran = go(tmp_path, [act(kind="fill", ref="e1", text="college fund"), FINISH])
     assert ran.run.steps[1].value == LiteralValue(value="college fund")
