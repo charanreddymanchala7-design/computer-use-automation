@@ -235,7 +235,7 @@ def test_call_refuses_arguments_that_do_not_fit_the_schema_before_any_browser_st
     [
         ([], {}, ("anthropic", "claude-sonnet-5")),
         (["--provider", "ollama"], {}, ("ollama", "llama3.1:8b")),
-        (["--provider", "gemini"], {}, ("gemini", "gemini-2.5-flash")),
+        (["--provider", "gemini"], {}, ("gemini", "gemini-3.5-flash")),
         (["--provider", "ollama", "--model", "qwen2.5:14b"], {}, ("ollama", "qwen2.5:14b")),
         (["--provider", "ollama"], {"CUA_MODEL": "mistral-nemo"}, ("ollama", "mistral-nemo")),
     ],

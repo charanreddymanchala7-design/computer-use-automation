@@ -33,7 +33,7 @@ Discovery works with any of three models, chosen with `cua run --provider`:
 | `--provider` | Needs | Notes |
 |---|---|---|
 | `anthropic` (default) | `ANTHROPIC_API_KEY` | Claude; prompt caching; screenshots sent alongside the page description |
-| `gemini` | `GEMINI_API_KEY`, free from [aistudio.google.com/apikey](https://aistudio.google.com/apikey), no card | Gemini 2.5 Flash by default; the free tier is rate limited, and the adapter waits and retries |
+| `gemini` | `GEMINI_API_KEY`, free from [aistudio.google.com/apikey](https://aistudio.google.com/apikey), no card | Gemini 3.5 Flash by default; the free tier is rate limited, and the adapter waits and retries |
 | `ollama` | a local `ollama serve` | No key and nothing leaves the machine. Text only. I tried `llama3.1:8b` and it was too weak for this loop (it typed a member number into the password field), so use a larger model |
 
 ## Run it without any live service
