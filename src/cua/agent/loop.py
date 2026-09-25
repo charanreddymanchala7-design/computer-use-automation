@@ -160,7 +160,10 @@ class DiscoveryLoop:
         limits: Limits | None = None,
         clock: Callable[[], float] = time.monotonic,
         run_id: str = "run",
+        on_screenshot: Callable[[str, bytes], None] | None = None,
     ) -> None:
+        self._on_screenshot = on_screenshot
+        self._shots = 0
         self._surface = surface
         self._gateway = gateway
         self._llm = llm
@@ -205,6 +208,12 @@ class DiscoveryLoop:
         )
         return True
 
+    def _keep(self, name: str, png: bytes) -> None:
+        """Hand a page the model was shown to whoever keeps evidence, numbered in order."""
+        if self._on_screenshot is not None:
+            self._on_screenshot(f"{self._shots:02d}-{name}", png)
+            self._shots += 1
+
     def _observe(self, run: _Run) -> Observation:
         obs = self._surface.observe()
         run.last_obs = obs
@@ -214,6 +223,7 @@ class DiscoveryLoop:
         assert run.last_obs is not None
         obs = run.last_obs
         run.last_state = state_key(obs)
+        self._keep("start", obs.screenshot)
         messages = [
             Message.user(
                 TextPart(first_message(run.task)),
@@ -286,6 +296,7 @@ class DiscoveryLoop:
         if outcome.observation is None:
             return ToolResult(call.id, (TextPart(outcome.text),), outcome.is_error)
         obs = outcome.observation
+        self._keep(call.name, obs.screenshot)
         return ToolResult(
             call.id,
             (TextPart(f"{outcome.text}\n\n{render_observation(obs)}"), ImagePart(obs.screenshot)),

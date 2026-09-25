@@ -635,3 +635,26 @@ def test_the_recorded_run_serializes_and_never_holds_a_secret_value(tmp_path: Pa
     assert "demo-only" not in text
     assert ran.run.secrets_used == ["MOCK_USER", "MOCK_PASS"]
     assert ran.run.params == {"member_id": "12345"}
+
+
+# --- keeping what the model saw ------------------------------------------------------------------
+
+
+def test_every_page_shown_to_the_model_can_be_kept_as_a_numbered_screenshot(tmp_path: Path) -> None:
+    kept: list[tuple[str, bytes]] = []
+    surface = FakeRecordingSurface(screens())
+    gateway, log = make_gateway(surface, tmp_path)
+    loop = DiscoveryLoop(
+        surface,
+        gateway,
+        FakeLLM([act(kind="click", ref="e2"), FINISH]),
+        log,
+        on_screenshot=lambda label, png: kept.append((label, png)),
+    )
+    loop.run(TASK)
+    assert [label for label, _ in kept] == ["00-start", "01-act"]
+    assert all(png.startswith(b"\x89PNG") for _, png in kept)
+
+
+def test_screenshots_are_optional(tmp_path: Path) -> None:
+    assert go(tmp_path, [FINISH]).run.outcome == "finished"
