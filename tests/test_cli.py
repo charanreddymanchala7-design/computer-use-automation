@@ -270,3 +270,33 @@ def test_an_unknown_provider_is_refused() -> None:
     out = runner.invoke(app, ["run", "--task", "member_lookup", "--provider", "carrier-pigeon"])
     assert out.exit_code == 2
     assert "carrier-pigeon" in out.output
+
+
+def test_models_lists_what_a_provider_offers(monkeypatch: pytest.MonkeyPatch) -> None:
+    from cua import cli
+
+    monkeypatch.setattr(
+        cli, "available_models", lambda provider: ["gemini-3-flash", "gemini-2.5-pro"]
+    )
+    out = runner.invoke(app, ["models", "--provider", "gemini"])
+    assert out.exit_code == 0
+    assert out.output.split() == ["gemini-3-flash", "gemini-2.5-pro"]
+
+
+def test_models_reports_a_config_problem_plainly(monkeypatch: pytest.MonkeyPatch) -> None:
+    from cua import cli
+    from cua.llm import LLMConfigError
+
+    def broken(provider: str) -> list[str]:
+        raise LLMConfigError("GEMINI_API_KEY is not set")
+
+    monkeypatch.setattr(cli, "available_models", broken)
+    out = runner.invoke(app, ["models", "--provider", "gemini"])
+    assert out.exit_code == 2
+    assert "GEMINI_API_KEY" in out.output
+
+
+def test_models_refuses_a_provider_it_cannot_list() -> None:
+    out = runner.invoke(app, ["models", "--provider", "anthropic"])
+    assert out.exit_code == 2
+    assert "gemini" in out.output

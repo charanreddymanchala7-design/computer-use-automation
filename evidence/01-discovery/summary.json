@@ -1,0 +1,13 @@
+{
+  "outcome": "failed",
+  "reason": "the model call failed: Gemini call failed (HTTP 404)",
+  "model": "gemini-2.5-flash",
+  "steps_recorded": 1,
+  "llm_steps": 0,
+  "tokens": 0,
+  "cost_usd": 0.0,
+  "duration_s": 0.9,
+  "captured_at": "2026-09-25T13:05:45Z",
+  "warnings": [],
+  "error": "only a finished run can be synthesized (this one is failed: the model call failed: Gemini call failed (HTTP 404))"
+}

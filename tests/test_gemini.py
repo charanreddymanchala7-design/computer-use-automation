@@ -24,7 +24,7 @@ from cua.llm import (
     ToolSpec,
     ToolUse,
 )
-from cua.llm.gemini_llm import GeminiLLM, clean_schema
+from cua.llm.gemini_llm import GeminiLLM, clean_schema, list_models
 from cua.redact import Redactor
 
 KEY = "AIzaSy-test-key-1234567890abcdef"
@@ -69,6 +69,17 @@ def gemini() -> Iterator[tuple[Fake, str]]:
         def log_message(self, format: str, *args: Any) -> None:
             return None
 
+        def do_GET(self) -> None:
+            fake.paths.append(self.path)
+            fake.headers.append({k.lower(): v for k, v in self.headers.items()})
+            status, reply = fake.replies.pop(0) if fake.replies else (200, fake.default)
+            body = json.dumps(reply).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_POST(self) -> None:
             length = int(self.headers.get("Content-Length", 0))
             fake.paths.append(self.path)
@@ -104,7 +115,7 @@ def step(llm: GeminiLLM, *messages: Message) -> Any:
     )
 
 
-# --- the request ---------------------------------------------------------------------------------
+# --- the request --------------------------------------------------------------------------------
 
 
 def test_the_key_travels_in_a_header_never_in_the_url(gemini: tuple[Fake, str]) -> None:
@@ -204,7 +215,7 @@ def test_a_failed_tool_result_is_reported_as_an_error(gemini: tuple[Fake, str]) 
     assert part["functionResponse"]["response"] == {"error": "no such ref"}
 
 
-# --- the reply ------------------------------------------------------------------------------------
+# --- the reply ----------------------------------------------------------------------------------
 
 
 def test_calls_text_and_usage_come_back_and_are_counted(gemini: tuple[Fake, str]) -> None:
@@ -297,7 +308,7 @@ def test_only_metadata_is_logged_never_prompts_or_replies(
     assert KEY not in text
 
 
-# --- failures and the key -------------------------------------------------------------------------
+# --- failures and the key -----------------------------------------------------------------------
 
 
 def test_a_missing_key_says_where_to_get_and_put_one() -> None:
@@ -378,3 +389,72 @@ def test_a_reply_that_is_not_json_is_an_llm_error(gemini: tuple[Fake, str]) -> N
 def test_an_unreachable_server_is_an_llm_error() -> None:
     with pytest.raises(LLMError, match="could not reach"):
         step(make("http://127.0.0.1:1", timeout_s=2))
+
+
+# --- a model name the API does not know ---------------------------------------------------------
+
+
+def test_an_unknown_model_says_how_to_find_a_real_one(gemini: tuple[Fake, str]) -> None:
+    fake, host = gemini
+    fake.replies = [(404, {"error": {"message": "models/gemini-9 is not found"}})]
+    with pytest.raises(LLMConfigError) as caught:
+        step(make(host))
+    assert "gemini-2.5-flash" in str(caught.value)
+    assert "cua models --provider gemini" in str(caught.value)
+
+
+def test_the_models_a_key_can_use_are_listed_newest_first_and_only_those_that_generate(
+    gemini: tuple[Fake, str],
+) -> None:
+    fake, host = gemini
+    fake.replies = [
+        (
+            200,
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-2.0-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/text-embedding-004",
+                        "supportedGenerationMethods": ["embedContent"],
+                    },
+                    {
+                        "name": "models/gemini-3-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                ],
+                "nextPageToken": "page2",
+            },
+        ),
+        (
+            200,
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-2.5-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {"name": "models/imagen-4", "supportedGenerationMethods": ["predict"]},
+                ]
+            },
+        ),
+    ]
+    names = list_models(env={"GEMINI_API_KEY": KEY}, host=host)
+    assert names == ["gemini-3-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+    assert fake.headers[0]["x-goog-api-key"] == KEY
+    assert KEY not in fake.paths[0]
+    assert "pageToken=page2" in fake.paths[1]
+
+
+def test_listing_models_needs_a_key_and_reports_a_rejected_one() -> None:
+    with pytest.raises(LLMConfigError, match="GEMINI_API_KEY"):
+        list_models(env={})
+
+
+def test_listing_models_reports_a_rejected_key(gemini: tuple[Fake, str]) -> None:
+    fake, host = gemini
+    fake.replies = [(403, {"error": {"message": "nope"}})]
+    with pytest.raises(LLMConfigError, match="rejected"):
+        list_models(env={"GEMINI_API_KEY": KEY}, host=host)
