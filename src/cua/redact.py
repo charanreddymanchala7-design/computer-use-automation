@@ -71,15 +71,19 @@ class Redactor:
         masked_id_keys: Iterable[str] = (),
     ) -> None:
         # longest first so a secret that contains another is removed whole
+        # case-insensitive: legacy screens often upper-case what was typed
         self._secrets = tuple(
-            sorted({s for s in secrets if len(s) >= _MIN_SECRET_LENGTH}, key=len, reverse=True)
+            re.compile(re.escape(s), re.IGNORECASE)
+            for s in sorted(
+                {s for s in secrets if len(s) >= _MIN_SECRET_LENGTH}, key=len, reverse=True
+            )
         )
         self._sensitive_keys = _DEFAULT_SENSITIVE_KEYS | {k.lower() for k in sensitive_keys}
         self._id_keys = _DEFAULT_ID_KEYS | {k.lower() for k in masked_id_keys}
 
     def redact_text(self, text: str) -> str:
         for secret in self._secrets:
-            text = text.replace(secret, "<redacted:secret>")
+            text = secret.sub("<redacted:secret>", text)
         for pattern, replacement in _SHAPES:
             text = pattern.sub(replacement, text)
         return _KEY_VALUE.sub(r"\1\2<redacted>", text)

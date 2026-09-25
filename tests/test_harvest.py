@@ -184,6 +184,8 @@ def test_a_result_row_is_found_by_the_input_it_was_searched_with_so_it_works_for
     text = next(s for s in bundle.strategies if isinstance(s, TextLocator))
     assert text.text == "{member_id}"
     assert text.exact is False
+    # the rest of the row is the member's own data: it must not survive into the artifact
+    assert bundle.description == "tr containing {member_id}"
 
     search_for(surface, mock, "12347")  # a different member, same capability
     resolved = surface.resolve(bundle, {"member_id": "12347"})

@@ -276,3 +276,10 @@ def test_a_planted_secret_appears_in_no_file_at_all(
         if path.is_file():
             content = path.read_text()
             assert not any(value in content for value in planted), path
+
+
+def test_a_secret_is_removed_however_the_application_cases_it() -> None:
+    # legacy screens shout: a header that shows the signed-in user upper-cased is still the secret
+    redactor = Redactor(secrets=["teller01"])
+    assert redactor.redact_text("User: TELLER01 Log Off") == "User: <redacted:secret> Log Off"
+    assert redactor.redact_text("Teller01 teller01") == "<redacted:secret> <redacted:secret>"
