@@ -109,6 +109,27 @@ def test_an_escalation_and_the_handoff_are_shown() -> None:
     assert "ir_1 at s7: aborted by ops (12.3 s)" in text
 
 
+def test_what_the_person_did_is_listed_under_the_handoff() -> None:
+    text = render_result(
+        result(
+            interventions=[
+                InterventionRecord(
+                    request_id="ir_1",
+                    step_id="s7",
+                    reason_code="session_expired",
+                    outcome="handed_back",
+                    taken_by="ops",
+                    duration_ms=1100,
+                    actions=["typed 8 characters into text field 'name=u'", "click image button"],
+                )
+            ]
+        )
+    )
+    assert "ir_1 at s7: handed_back by ops (1.1 s)" in text
+    assert "human did  typed 8 characters into text field 'name=u'" in text
+    assert "human did  click image button" in text
+
+
 def test_recoveries_and_drift_are_reported_on_a_success() -> None:
     text = render_result(
         result(
@@ -129,12 +150,13 @@ def test_identifiers_are_masked_and_sensitive_inputs_are_withheld() -> None:
 
 def test_progress_is_read_from_the_runs_own_log(capability_dict: dict[str, Any]) -> None:
     capability = Capability.model_validate(capability_dict)
-    events = [
+    events: list[dict[str, Any]] = [
         {"event": "replay_start", "capability": "member_lookup@1.0.0"},
         {"event": "step_ok", "step": "s1"},
         {"event": "recovery", "step": "s2", "reason": "welcome_interstitial", "outcome": "dismiss"},
         {"event": "intervention_raised", "step": "s3", "reason": "session_expired"},
         {"event": "control_taken", "actor": "ops"},
+        {"event": "control_returned", "actor": "ops", "actions": 5},
         {"event": "control_resumed"},
         {"event": "intervention_timed_out", "step": "s3"},
         {"event": "action_blocked", "step": "s4", "reason": "url_not_allowed"},
@@ -146,10 +168,11 @@ def test_progress_is_read_from_the_runs_own_log(capability_dict: dict[str, Any])
     assert lines[2].startswith("[!!] s2 recovered from 'welcome_interstitial'")
     assert lines[3].startswith("[!!] s3 stuck (session_expired)")
     assert "ops" in lines[4]
-    assert lines[5].startswith("[ok] control handed back")
-    assert lines[6] == "[xx] the person did not finish the handoff: timed out"
-    assert lines[7].startswith("[xx] s4 blocked by policy")
-    assert len(lines) == 8
+    assert lines[5] == "[--] the person did 5 actions (kept in the run log)"
+    assert lines[6].startswith("[ok] control handed back")
+    assert lines[7] == "[xx] the person did not finish the handoff: timed out"
+    assert lines[8].startswith("[xx] s4 blocked by policy")
+    assert len(lines) == 9
 
 
 def test_mark_up_prefixes_a_line_with_its_marker() -> None:

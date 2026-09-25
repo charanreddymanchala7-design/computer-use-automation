@@ -349,6 +349,7 @@ class ReplayEngine:
                 outcome=handed.outcome,
                 taken_by=handed.taken_by,
                 duration_ms=handed.duration_ms,
+                actions=list(handed.actions),
             )
         )
         if handed.outcome != "handed_back":

@@ -101,6 +101,16 @@ def test_a_session_that_expires_mid_run_is_finished_by_a_person_in_the_same_brow
         ("session_expired", "handed_back", "simulated operator")
     ]
 
+    actions = result.interventions[0].actions
+    assert "typed 8 characters into text field 'name=u'" in actions  # the user name: length only
+    assert "typed into a password field 'name=p'" in actions
+    assert "typed 5 characters into text field 'name=F1'" in actions  # the member number
+    assert sum(a.startswith("click") for a in actions) >= 2  # sign in, search
+    assert any(a.startswith("navigated to /msv/") for a in actions)
+    assert not any("teller01" in a or "demo-only" in a or "12345" in a for a in actions)
+    logged = [e["what"] for e in read_events(log.path) if e["event"] == "human_action"]
+    assert logged == actions
+
     truth = json.loads(mock.client().get("/_admin/log").text)
     searches = [r for r in truth["requests"] if r["method"] == "POST" and r["step"] == "results"]
     assert len(searches) == 2  # the run's search (which lost the session) and the person's own

@@ -7,6 +7,7 @@ as the control lease, never the browser, so a human takes over by using the same
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import tempfile
@@ -15,12 +16,14 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
+from urllib.parse import urlsplit
 
 from playwright.sync_api import (
     BrowserContext,
     Dialog,
     ElementHandle,
+    Frame,
     Page,
     Playwright,
     Route,
@@ -36,6 +39,7 @@ from cua.surface.base import (
     ActionResult,
     DialogEvent,
     ElementInfo,
+    HumanAction,
     LocatorAttempt,
     LocatorNotFound,
     Observation,
@@ -48,6 +52,7 @@ from cua.surface.base import (
     UnknownRefError,
     UnknownSecretError,
 )
+from cua.surface.capture import CAPTURE_JS, action_from_payload
 from cua.surface.observe import (
     ELEMENT_TEXT_JS,
     TEXT_JS,
@@ -98,6 +103,8 @@ class PlaywrightSurface:
         self._act_dialogs: list[DialogEvent] | None = None
         self._route_handler: Callable[[Route], None] | None = None
         self._dialog_policy: Callable[[str, str], bool] | None = None
+        self._capture_sink: Callable[[HumanAction], None] | None = None
+        self._capture_ready = False
 
     # --- lifecycle ----------------------------------------------------------------------------
 
@@ -243,6 +250,40 @@ class PlaywrightSurface:
 
     def add_secrets(self, secrets: Mapping[str, str]) -> None:
         self._secrets.update(secrets)
+
+    # --- what a person does while they hold control ---------------------------------------------
+
+    def start_capture(self, sink: Callable[[HumanAction], None]) -> None:
+        """Report a person's clicks, typing (by length only) and navigations to ``sink``.
+
+        The binding and page script are installed once and stay for the browser's life, because
+        Playwright cannot remove them; ``_capture_sink`` gates them, so nothing is reported unless
+        a person is in control."""
+        if not self._capture_ready:
+            self._require_context().expose_binding("__cua_capture", self._on_capture)
+            self._require_context().add_init_script(CAPTURE_JS)
+            self.page.on("framenavigated", self._on_navigated)
+            self._capture_ready = True
+        self._capture_sink = sink
+        for frame in self.page.frames:  # documents that are already loaded
+            with contextlib.suppress(PlaywrightError):
+                frame.evaluate(CAPTURE_JS)
+
+    def stop_capture(self) -> None:
+        self._capture_sink = None
+
+    def _on_capture(self, source: Any, payload: Any) -> None:
+        sink = self._capture_sink
+        if sink is None:
+            return
+        action = action_from_payload(payload, getattr(source["frame"], "name", "") or "")
+        if action is not None:
+            sink(action)
+
+    def _on_navigated(self, frame: Frame) -> None:
+        sink = self._capture_sink
+        if sink is not None:
+            sink(HumanAction("navigated", urlsplit(frame.url).path or "/", frame.name or ""))
 
     # --- dialogs ------------------------------------------------------------------------------
 

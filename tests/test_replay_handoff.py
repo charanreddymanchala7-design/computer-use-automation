@@ -93,7 +93,7 @@ def run(
         def on_pause(_: FakeReplaySurface) -> None:
             # a person acts only once they have been asked; the engine's own polling pauses
             # before that must not use up their script
-            if queue and lease.state.phase not in (Phase.IDLE, Phase.RUNNING):
+            if queue and lease.state.phase in (Phase.WAITING_FOR_HUMAN, Phase.HUMAN_IN_CONTROL):
                 queue.pop(0)()
 
         surface.on_pause = on_pause

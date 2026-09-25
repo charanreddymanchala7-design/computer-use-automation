@@ -103,10 +103,22 @@ def replay_capability(
     try:
         surface.open()
         lease = ControlLease()
+
+        def keep_png(name: str, png: bytes) -> None:
+            (evidence_dir / f"{name}.png").write_bytes(png)
+
         gateway = ActionGateway(surface, policy, log, lease=lease if operator != "none" else None)
         channels, web = _operators(operator, lease, evidence_root, announce, operator_port)
         handoff = (
-            Handoff(lease, gateway, surface, log, channels, claim_timeout_s=claim_timeout_s)
+            Handoff(
+                lease,
+                gateway,
+                surface,
+                log,
+                channels,
+                claim_timeout_s=claim_timeout_s,
+                keep_screenshot=keep_png,
+            )
             if channels is not None
             else None
         )

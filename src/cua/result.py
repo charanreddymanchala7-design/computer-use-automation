@@ -119,6 +119,9 @@ class InterventionRecord(StrictModel):
     outcome: Literal["handed_back", "aborted", "timed_out"]
     taken_by: str | None = None
     duration_ms: int = Field(ge=0)
+    actions: list[str] = Field(
+        default_factory=list, description="What the person did, described without what they typed"
+    )
 
 
 class DegradedLocator(StrictModel):

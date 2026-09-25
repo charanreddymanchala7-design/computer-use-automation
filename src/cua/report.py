@@ -60,6 +60,12 @@ def progress_lines(
             add("warn", f"{step} stuck ({event.get('reason')}): a person was asked to help")
         elif name == "control_taken":
             add("warn", f"a person took control ({event.get('actor')})")
+        elif name == "control_returned":
+            count = event.get("actions", 0)
+            add(
+                "info",
+                f"the person did {count} action{'s' if count != 1 else ''} (kept in the run log)",
+            )
         elif name == "control_resumed":
             add("ok", "control handed back; the page was re-checked and the run continues")
         elif name in ("intervention_aborted", "intervention_timed_out"):
@@ -99,15 +105,15 @@ def render_result(result: ReplayResult, *, color: bool = False) -> str:
         ("drift", f"{d.step_id} found by fallback strategy {d.strategy_index} ({d.strategy_kind})")
         for d in result.degraded
     )
-    rows.extend(
-        (
-            "handoff",
-            f"{i.request_id} at {i.step_id}: {i.outcome}"
-            + (f" by {i.taken_by}" if i.taken_by else "")
-            + f" ({i.duration_ms / 1000:.1f} s)",
+    for i in result.interventions:
+        who = f" by {i.taken_by}" if i.taken_by else ""
+        rows.append(
+            (
+                "handoff",
+                f"{i.request_id} at {i.step_id}: {i.outcome}{who} ({i.duration_ms / 1000:.1f} s)",
+            )
         )
-        for i in result.interventions
-    )
+        rows.extend(("human did", action) for action in i.actions)
     if result.evidence.screenshot:
         rows.append(("evidence", f"{result.evidence.screenshot}, {result.evidence.aria_snapshot}"))
     rows.append(("duration", f"{result.duration_ms / 1000:.1f} s"))
